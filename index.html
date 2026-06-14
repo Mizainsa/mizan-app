@@ -691,6 +691,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--t);direct
 <script>
 // ===== Supabase =====
 var SB_URL='https://lzfgjvafmvofwjiyvelq.supabase.co';
+var PROXY_URL='https://lzfgjvafmvofwjiyvelq.supabase.co/functions/v1/smooth-service';
 var SB_KEY='sb_publishable_YZzzqNIjBGtAbD1IZAiY-w_gO93vuH5';
 var sb=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
 
@@ -851,33 +852,48 @@ function switchTab(t){
   if(t==='login'){document.querySelector('.atab:first-child').classList.add('active');document.getElementById('loginForm').classList.add('active');}
   else{document.querySelector('.atab:last-child').classList.add('active');document.getElementById('regForm').classList.add('active');}
 }
-function doLogin(){
+async function doLogin(){
   var em=document.getElementById('liEmail').value.trim();
   var pw=document.getElementById('liPass').value;
   if(!em||!pw){showToast('ادخل البريد وكلمة المرور');return;}
-  var saved=localStorage.getItem('mzu_'+em);
-  if(saved){
-    var u=JSON.parse(saved);
-    if(u.pw!==pw){showToast('كلمة المرور غير صحيحة');return;}
-    ST.user=u;
-  } else {
-    ST.user={nm:em.split('@')[0],em:em,pw:pw,plan:'free',cc:20,lc:0,sc:0};
+  if(!sb){showToast('تعذر الاتصال بالخادم');return;}
+  showToast('جاري الدخول...');
+  try{
+    var r=await sb.auth.signInWithPassword({email:em,password:pw});
+    if(r.error){showToast('البريد او كلمة المرور غير صحيحة');return;}
+    var uid=r.data&&r.data.user?r.data.user.id:null;
+    var prof=null;
+    if(uid){var pr=await sb.from('profiles').select('*').eq('id',uid).single();prof=pr.data;}
+    ST.user={id:uid,nm:prof?prof.full_name:em.split('@')[0],em:em,
+      plan:prof?prof.plan:'free',cc:prof?prof.chats_left:20,
+      lc:prof?prof.lawehas_left:0,sc:prof?prof.consults_left:0};
+    localStorage.setItem('mzce',em);
     localStorage.setItem('mzu_'+em,JSON.stringify(ST.user));
-  }
-  localStorage.setItem('mzce',em);
-  updateUI();showToast('مرحبا بك');showScr('home');offerBio();
+    updateUI();showToast('مرحبا بك');showScr('home');
+  }catch(e){showToast('خطا في الاتصال');}
 }
-function doRegister(){
+async function doRegister(){
   var nm=document.getElementById('rgName').value.trim();
   var em=document.getElementById('rgEmail').value.trim();
   var pw=document.getElementById('rgPass').value;
   if(!nm||!em||!pw){showToast('اكمل جميع الحقول');return;}
-  ST.user={nm:nm,em:em,pw:pw,plan:'free',cc:20,lc:0,sc:0};
-  localStorage.setItem('mzu_'+em,JSON.stringify(ST.user));
-  localStorage.setItem('mzce',em);
-  updateUI();showToast('تم انشاء حسابك');showScr('home');offerBio();
+  if(pw.length<6){showToast('كلمة المرور 6 احرف على الاقل');return;}
+  if(!sb){showToast('تعذر الاتصال بالخادم');return;}
+  showToast('جاري انشاء الحساب...');
+  try{
+    var r=await sb.auth.signUp({email:em,password:pw});
+    if(r.error){showToast('خطا: '+(r.error.message.indexOf('already')>-1?'البريد مسجل مسبقا':r.error.message));return;}
+    var uid=r.data&&r.data.user?r.data.user.id:null;
+    if(uid){
+      await sb.from('profiles').insert({id:uid,full_name:nm,email:em,plan:'free',chats_left:20,lawehas_left:0,consults_left:0});
+    }
+    ST.user={id:uid,nm:nm,em:em,plan:'free',cc:20,lc:0,sc:0};
+    localStorage.setItem('mzce',em);
+    localStorage.setItem('mzu_'+em,JSON.stringify(ST.user));
+    updateUI();showToast('تم انشاء حسابك');showScr('home');
+  }catch(e){showToast('خطا في الاتصال');}
 }
-function doLogout(){localStorage.removeItem('mzce');ST.user=null;showScr('auth');}
+async function doLogout(){if(sb)try{await sb.auth.signOut();}catch(e){}localStorage.removeItem('mzce');ST.user=null;updateUI();showScr('home');}
 function saveU(){if(ST.user)localStorage.setItem('mzu_'+ST.user.em,JSON.stringify(ST.user));}
 
 // UPDATE UI
@@ -991,13 +1007,13 @@ async function generateLaweha(){
   showLoad('جارٍ انشاء اللائحة...');
   try{
     var p='صِغ لائحة دعوى قضائية رسمية باللغة العربية. ابدا بـ بسم الله الرحمن الرحيم ثم سعادة رئيس المحكمة المحترم. نوع: '+ST.ltype+'. الوقائع: '+facts+'. المطلوب: '+req;
-    var res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+GK()},
-      body:JSON.stringify({model:'allam-2-7b',messages:[{role:'user',content:p}],max_tokens:1500,temperature:0.3})
+    var res=await fetch(PROXY_URL,{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY,'apikey':SB_KEY},
+      body:JSON.stringify({question:p})
     });
     var d=await res.json();
-    if(d.error)throw new Error(d.error.message);
-    var txt=d.choices&&d.choices[0]&&d.choices[0].message?d.choices[0].message.content:'حدث خطا';
+    if(d.error)throw new Error(d.error);
+    var txt=d.answer?d.answer:'حدث خطا';
     document.getElementById('lawehaText').textContent=txt;
     document.getElementById('lawehaResult').style.display='block';
     document.getElementById('lawehaResult').scrollIntoView({behavior:'smooth'});
@@ -1078,16 +1094,17 @@ async function sendChat(){
     var msgs=[{role:'system',content:CSYS}];
     var sl=chatHist.slice(-6);
     for(var i=0;i<sl.length;i++){msgs.push({role:sl[i].r==='user'?'user':'assistant',content:sl[i].c});}
-    var res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+GK()},
-      body:JSON.stringify({model:'allam-2-7b',messages:msgs,max_tokens:1000,temperature:0.7}),
+    var hist=chatHist.slice(-6).map(function(x){return {role:x.r==='user'?'user':'assistant',content:x.c};});
+    var res=await fetch(PROXY_URL,{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY,'apikey':SB_KEY},
+      body:JSON.stringify({question:txt,history:hist}),
       signal:ctrl.signal
     });
     clearTimeout(tmo);
     var d=await res.json();
     hideTyping();
-    if(d.error){addBotMsg('خطا: '+d.error.message);return;}
-    var rep=d.choices&&d.choices[0]&&d.choices[0].message?d.choices[0].message.content:'حاول مجددا.';
+    if(d.error){addBotMsg('خطا: '+d.error);return;}
+    var rep=d.answer?d.answer:'حاول مجددا.';
     addBotMsg(rep);chatHist.push({r:'assistant',c:rep});
     if(u&&u.plan==='free'){u.cc=Math.max(0,(u.cc||0)-1);saveU();updateUI();if(u.cc===0)setTimeout(function(){addBotMsg('استخدمت جميع محادثاتك. يمكنك الاشتراك للمزيد.');},500);}
   }catch(e){
@@ -1148,13 +1165,13 @@ async function submitConsult(){
   try{
     var sp='انت مستشار قانوني سعودي متخصص في '+ST.area+'. اجب بوضوح واذكر النظام والجهة والاجراءات.';
     var uq='مجال: '+ST.area+'. الاستفسار: '+q;
-    var res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+GK()},
-      body:JSON.stringify({model:'allam-2-7b',messages:[{role:'system',content:sp},{role:'user',content:uq}],max_tokens:1000,temperature:0.5})
+    var res=await fetch(PROXY_URL,{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY,'apikey':SB_KEY},
+      body:JSON.stringify({question:sp+' '+uq})
     });
     var d=await res.json();
-    if(d.error)throw new Error(d.error.message);
-    var ans=d.choices&&d.choices[0]&&d.choices[0].message?d.choices[0].message.content:'لم اتمكن من الرد.';
+    if(d.error)throw new Error(d.error);
+    var ans=d.answer?d.answer:'لم اتمكن من الرد.';
     document.getElementById('consultAnswer').textContent=ans;
     document.getElementById('consultResult').style.display='block';
     document.getElementById('consultResult').scrollIntoView({behavior:'smooth'});
@@ -1388,12 +1405,26 @@ function startTicker(){
 }
 
 async function init(){
-  var ce=localStorage.getItem('mzce');
-  if(ce){
-    var u=JSON.parse(localStorage.getItem('mzu_'+ce)||'null');
-    if(u){ST.user=u;}
-  }
   await loadSystemsFromDB();
+  // استعادة جلسة Supabase الحقيقية
+  if(sb){
+    try{
+      var s=await sb.auth.getSession();
+      if(s.data&&s.data.session&&s.data.session.user){
+        var uid=s.data.session.user.id;
+        var em=s.data.session.user.email;
+        var pr=await sb.from('profiles').select('*').eq('id',uid).single();
+        var prof=pr.data;
+        ST.user={id:uid,nm:prof?prof.full_name:em.split('@')[0],em:em,
+          plan:prof?prof.plan:'free',cc:prof?prof.chats_left:20,
+          lc:prof?prof.lawehas_left:0,sc:prof?prof.consults_left:0};
+      }
+    }catch(e){}
+  }
+  if(!ST.user){
+    var ce=localStorage.getItem('mzce');
+    if(ce){var u=JSON.parse(localStorage.getItem('mzu_'+ce)||'null');if(u)ST.user=u;}
+  }
   if(ST.screen==='regulations')renderRegs(curCat||'all','');
   // الزائر يدخل مباشرة - لا شاشة تسجيل اجبارية
   updateUI();
