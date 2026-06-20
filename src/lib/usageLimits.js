@@ -44,6 +44,44 @@ export async function getCachedSettings() {
   }
 }
 
+// ===== حساب المسؤول (أدمن) ذو الوصول المفتوح =====
+// بريد الأدمن يُخزّن في app_settings على الخادم (مفتاح admin_email)، قابل للتغيير
+// من لوحة الإدارة دون تحديث للتطبيق. هنا نقارن بريد المستخدم الحالي به.
+const ADMIN_FLAG_KEY = "mizan_is_admin";
+
+// يقارن بريد المستخدم الممرّر ببريد الأدمن المخزّن (من الإعدادات اللحظية).
+// المقارنة غير حسّاسة لحالة الأحرف ومع تجاهل الفراغات. ترجع true عند التطابق.
+export async function isAdminUser(email) {
+  try {
+    if (!email) return false;
+    const s = await getCachedSettings();
+    const adminEmail = s && s.admin_email ? String(s.admin_email) : "";
+    if (!adminEmail) return false;
+    const match = email.trim().toLowerCase() === adminEmail.trim().toLowerCase();
+    // نخزّن النتيجة محلياً ليستفيد منها فحص الحصة دون إعادة قراءة كل مرة
+    await AsyncStorage.setItem(ADMIN_FLAG_KEY, match ? "1" : "0");
+    return match;
+  } catch (_e) {
+    return false;
+  }
+}
+
+// قراءة سريعة لحالة الأدمن المخزّنة محلياً (يستخدمها فحص الحصة)
+async function isAdminCached() {
+  try {
+    return (await AsyncStorage.getItem(ADMIN_FLAG_KEY)) === "1";
+  } catch (_e) {
+    return false;
+  }
+}
+
+// مسح حالة الأدمن (تُستدعى عند تسجيل الخروج، فلا تبقى الباقة مفتوحة لمستخدم آخر)
+export async function clearAdminFlag() {
+  try {
+    await AsyncStorage.setItem(ADMIN_FLAG_KEY, "0");
+  } catch (_e) {}
+}
+
 // قراءة حالة ميزة: ترجع true ما لم تُوقَف صراحة من لوحة الإدارة (الافتراضي مفعّل)
 export async function isFeatureEnabled(featureKey) {
   try {
@@ -131,6 +169,10 @@ async function readCount() {
 // هل يمكن بدء طلب جديد؟ ترجع { allowed, used, quota, plan, remaining, expireMsg }
 export async function checkCanChat() {
   const plan = await getPlan();
+  // الأدمن: وصول مفتوح بلا حدود (تجاوز دائم للحصة)
+  if (await isAdminCached()) {
+    return { allowed: true, used: 0, quota: Infinity, plan: "advanced", remaining: Infinity, expireMsg: "" };
+  }
   const quota = await effectiveQuota(plan);
   const used = await readCount();
   const allowed = used < quota;
