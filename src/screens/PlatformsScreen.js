@@ -104,8 +104,8 @@ export default function PlatformsScreen({ navigation }) {
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.gridScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitleText}>{t("sec_platforms", lang)}</Text>
             <View style={styles.miniDot} />
+            <Text style={styles.sectionTitleText}>{t("sec_platforms", lang)}</Text>
           </View>
           <Text style={styles.gridHint}>{en ? "Choose a platform to chat with its expert" : "اختر منصة لتتحدث مع خبيرها المختص"}</Text>
           <View style={styles.gridContainer}>
@@ -217,9 +217,9 @@ function makeStyles(colors, fontScale, dir) {
   container: { flex: 1, backgroundColor: colors.bg },
   innerContainer: { flex: 1 },
   gridScroll: { paddingHorizontal: 20, paddingTop: Platform.OS === "ios" ? 60 : 36 },
-  sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: dir.rowStart, marginBottom: 6 },
+  sectionTitleRow: { flexDirection: dir.row, alignItems: "center", justifyContent: dir.rowStart, marginBottom: 6 },
   sectionTitleText: { fontFamily: "Cairo_800ExtraBold", fontSize: 22, color: colors.onyx },
-  miniDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.royal, marginLeft: 9 },
+  miniDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.royal, marginHorizontal: 9 },
   gridHint: { fontFamily: "Tajawal_400Regular", fontSize: 13, color: colors.textDim, textAlign: dir.textAlign, marginBottom: 20 },
   gridContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", width: "100%" },
   cardTouch: { width: CARD_WIDTH, marginBottom: 14 },
