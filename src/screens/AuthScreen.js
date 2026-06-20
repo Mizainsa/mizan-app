@@ -18,6 +18,7 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   // بروتوكول الموافقة القانونية
   const [termsVisible, setTermsVisible] = useState(false);
@@ -172,13 +173,15 @@ export default function AuthScreen({ onAuthSuccess }) {
                 style={styles.input}
                 placeholder="********"
                 placeholderTextColor={colors.textMuted}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 value={password}
                 onChangeText={setPassword}
                 textAlign={dir.textAlign}
               />
-              <FontAwesome5 name="lock" size={14} color={colors.royal} style={styles.inputIcon} />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.inputIcon} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <FontAwesome5 name={showPassword ? "eye-slash" : "eye"} size={15} color={colors.royal} />
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.submitButton} onPress={handleAuthAction} disabled={loading}>
