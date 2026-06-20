@@ -29,16 +29,18 @@ import { ThemeProvider, useTheme } from "./src/lib/ThemeContext";
 import { registerDevice, getSettings } from "./src/lib/api";
 import { initStore, closeStore, setupPurchaseListeners } from "./src/lib/payments";
 import { supabase } from "./src/services/supabaseClient";
-import { setPlan, cacheLiveSettings } from "./src/lib/usageLimits";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { setPlan, cacheLiveSettings, isAdminUser, clearAdminFlag } from "./src/lib/usageLimits";
 import { isLockEnabled, authenticate } from "./src/lib/biometric";
 import { installGlobalErrorHandler } from "./src/lib/errorLog";
 import ErrorBoundary from "./src/components/ErrorBoundary";
 
 installGlobalErrorHandler();
 
+// نسمح بـ RTL لكن لا نفرضه ثابتاً — الاتجاه يُدار ديناميكياً عبر ThemeContext (dir)
+// حسب اللغة المختارة، فلا تنكسر الإنجليزية (LTR).
 try {
   I18nManager.allowRTL(true);
-  I18nManager.forceRTL(true);
 } catch (e) {}
 
 const Stack = createNativeStackNavigator();
@@ -89,6 +91,7 @@ function HomeStack() {
 
 function MainTabs() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -100,14 +103,15 @@ function MainTabs() {
         sceneContainerStyle: { backgroundColor: colors.bg },
         tabBarStyle: {
           position: "absolute",
-          bottom: Platform.OS === "ios" ? 28 : 18,
-          left: 20, right: 20, height: 66, borderRadius: 26,
-          backgroundColor: colors.glass,
-          borderWidth: 1, borderColor: colors.glassBorder,
+          bottom: 0,
+          left: 0, right: 0,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          paddingTop: 10,
+          backgroundColor: colors.bgPure,
           borderTopWidth: 1, borderTopColor: colors.glassBorder,
-          shadowColor: "#0A2342", shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.12, shadowRadius: 20, elevation: 12,
-          paddingBottom: Platform.OS === "ios" ? 16 : 10, paddingTop: 10,
+          shadowColor: "#0A2342", shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.08, shadowRadius: 16, elevation: 12,
         },
         tabBarActiveTintColor: colors.platinum,
         tabBarInactiveTintColor: colors.textMuted,
@@ -158,7 +162,19 @@ function AppInner() {
 
   const tryUnlock = async () => {
     const ok = await authenticate();
-    if (ok) setLocked(false);
+    if (ok) {
+      // البصمة نجحت: نتحقق من صلاحية الجلسة (التوكن) في SecureStore.
+      // إن كانت منتهية أو غير موجودة، نوجّه المستخدم إجبارياً لشاشة الدخول.
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          setSession(null);
+        }
+      } catch (e) {
+        setSession(null);
+      }
+      setLocked(false);
+    }
   };
 
   // تهيئة الجهاز والمتجر مرة واحدة عند بدء التطبيق (كما في الأصل)
@@ -172,6 +188,14 @@ function AppInner() {
       }
       try { await registerDevice(uuid); } catch (e) {}
       try { const settings = await getSettings(); await cacheLiveSettings(settings); } catch (e) {}
+      // فحص الأدمن: إن طابق بريد المستخدم الحالي بريد الأدمن (من إعدادات الخادم)،
+      // يُمنح باقة advanced مفتوحة تلقائياً (وصول غير محدود لتصفّح التطبيق).
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.email && await isAdminUser(user.email)) {
+          await setPlan("advanced");
+        }
+      } catch (e) {}
       const ok = await initStore();
       if (ok && mounted) {
         setupPurchaseListeners(
@@ -196,6 +220,18 @@ function AppInner() {
     })();
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession || null);
+      // عند تسجيل الدخول: إن كان المستخدم أدمن، يُمنح باقة advanced مفتوحة.
+      // عند الخروج (لا جلسة): تُمسح حالة الأدمن فلا تبقى مفتوحة لمستخدم آخر.
+      (async () => {
+        try {
+          const em = newSession && newSession.user ? newSession.user.email : null;
+          if (em) {
+            if (await isAdminUser(em)) await setPlan("advanced");
+          } else {
+            await clearAdminFlag();
+          }
+        } catch (e) {}
+      })();
     });
     return () => {
       mounted = false;
@@ -251,10 +287,12 @@ function AppInner() {
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AppInner />
-      </ThemeProvider>
-    </ErrorBoundary>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AppInner />
+        </ThemeProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
