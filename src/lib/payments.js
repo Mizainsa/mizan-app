@@ -1,28 +1,22 @@
 // ===== الدفع داخل التطبيق عبر Google Play و Apple App Store =====
-// يستخدم مكتبة react-native-iap للتعامل مع المتجرين.
-// بعد نجاح الشراء، يُرسل الإيصال لخادم ميزان عبر recordPayment.
-
+// يستخدم مكتبة expo-iap (البديل الرسمي المصمّم لـ Expo من react-native-iap).
 import {
   initConnection,
   endConnection,
-  getSubscriptions,
-  requestSubscription,
+  fetchProducts,
+  requestPurchase,
   finishTransaction,
   purchaseUpdatedListener,
   purchaseErrorListener,
-} from "react-native-iap";
+} from "expo-iap";
 import { Platform } from "react-native";
 import { recordPayment } from "./api";
 
-// معرّفات منتجات الحصص في المتجرين (تُنشأ في Google Play Console و App Store Connect بنفس الأسماء)
-// نظام حصص لا اشتراك زمني: حزمة طلبات تُشترى وتنتهي بالاستهلاك.
 export const SUBSCRIPTION_SKUS = Platform.select({
   android: ["mizan_pro_quota", "mizan_advanced_quota"],
   ios: ["mizan_pro_quota", "mizan_advanced_quota"],
 });
 
-// ربط معرّف المنتج بالباقة والسعر الافتراضي (للتسجيل في الخادم)
-// السعر المعروض في الواجهة يُقرأ من لوحة التحكم؛ هذا السعر للتسجيل فقط.
 const SKU_INFO = {
   mizan_pro_quota: { plan_id: "pro", amount: 149 },
   mizan_advanced_quota: { plan_id: "advanced", amount: 249 },
@@ -31,7 +25,6 @@ const SKU_INFO = {
 let purchaseUpdateSub = null;
 let purchaseErrorSub = null;
 
-// تهيئة الاتصال بالمتجر
 export async function initStore() {
   try {
     await initConnection();
@@ -42,7 +35,6 @@ export async function initStore() {
   }
 }
 
-// إنهاء الاتصال
 export async function closeStore() {
   try {
     if (purchaseUpdateSub) purchaseUpdateSub.remove();
@@ -51,10 +43,9 @@ export async function closeStore() {
   } catch (e) {}
 }
 
-// جلب باقات الاشتراك من المتجر
 export async function fetchSubscriptions() {
   try {
-    const subs = await getSubscriptions({ skus: SUBSCRIPTION_SKUS });
+    const subs = await fetchProducts({ skus: SUBSCRIPTION_SKUS, type: "subs" });
     return subs || [];
   } catch (e) {
     console.log("fetch subs error", e);
@@ -62,15 +53,19 @@ export async function fetchSubscriptions() {
   }
 }
 
-// إعداد مستمعي الشراء (يُستدعى مرة عند بدء التطبيق)
-// deviceUuid: معرّف الجهاز لتسجيل الدفعة في الخادم
 export function setupPurchaseListeners(deviceUuid, onSuccess, onError) {
   purchaseUpdateSub = purchaseUpdatedListener(async (purchase) => {
-    const receipt = purchase.transactionReceipt || purchase.purchaseToken;
+    const receipt =
+      purchase.purchaseToken ||
+      purchase.transactionId ||
+      purchase.jwsRepresentationIos ||
+      "";
     if (receipt) {
       try {
-        // 1. نسجّل الدفعة في خادم ميزان (الإيصال الحقيقي)
-        const sku = purchase.productId;
+        const sku =
+          purchase.productId ||
+          (purchase.ids && purchase.ids[0]) ||
+          "";
         const info = SKU_INFO[sku] || { plan_id: sku, amount: 0 };
         await recordPayment({
           platform: Platform.OS === "ios" ? "apple" : "google",
@@ -80,7 +75,6 @@ export function setupPurchaseListeners(deviceUuid, onSuccess, onError) {
           device_uuid: deviceUuid,
           receipt_id: typeof receipt === "string" ? receipt.substring(0, 200) : "",
         });
-        // 2. ننهي المعاملة مع المتجر (مهم جداً، وإلا تتكرر)
         await finishTransaction({ purchase, isConsumable: false });
         if (onSuccess) onSuccess(info.plan_id);
       } catch (e) {
@@ -94,10 +88,15 @@ export function setupPurchaseListeners(deviceUuid, onSuccess, onError) {
   });
 }
 
-// بدء عملية شراء اشتراك
 export async function buySubscription(sku) {
   try {
-    await requestSubscription({ sku });
+    await requestPurchase({
+      request: {
+        ios: { sku },
+        android: { skus: [sku] },
+      },
+      type: "subs",
+    });
     return true;
   } catch (e) {
     console.log("buy error", e);

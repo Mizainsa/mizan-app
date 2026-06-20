@@ -60,7 +60,7 @@
       ],
       "expo-secure-store",
       "expo-local-authentication",
-      "./plugins/withIapStore"
+      "expo-iap"
     ],
     "extra": {
       "eas": {
