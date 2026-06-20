@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
   Dimensions, KeyboardAvoidingView, Platform, ScrollView, Alert, Modal,
@@ -22,6 +22,10 @@ export default function AuthScreen({ onAuthSuccess }) {
   // بروتوكول الموافقة القانونية
   const [termsVisible, setTermsVisible] = useState(false);
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
+  // القياس الديناميكي: تُحدّث لحظة ظهور المحتوى ولحظة كل تمرير (لا قيم ثابتة)
+  const contentHeightRef = useRef(0);
+  const layoutHeightRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
 
   // الدخول المباشر (لا يتطلب موافقة جديدة)
   const handleLogin = async () => {
@@ -98,12 +102,30 @@ export default function AuthScreen({ onAuthSuccess }) {
     }
   };
 
-  // رصد وصول التمرير لنهاية النص لتفعيل زر الموافقة
-  const onTermsScroll = (e) => {
-    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 24) {
+  // معادلة التسامح (Tolerance Margin): يُعتبر الوصول للقاع إذا كان الفرق
+  // بين ارتفاع المحتوى ومجموع (ارتفاع منطقة العرض + مقدار التمرير) أقل من 50 بكسل.
+  // هذا يحلّ حساسية أندرويد الناتجة عن القيم العشرية واختلاف كثافة البكسل.
+  const TOLERANCE_MARGIN = 50;
+
+  // التقييم الموحّد: لا يُفعّل الزر إلا عند تحقّق معادلة التسامح حصراً
+  const evaluateBottomReached = () => {
+    const contentH = contentHeightRef.current;
+    const layoutH = layoutHeightRef.current;
+    const scrollY = scrollOffsetRef.current;
+    if (contentH <= 0 || layoutH <= 0) return;
+    const distanceFromBottom = contentH - (layoutH + scrollY);
+    if (distanceFromBottom < TOLERANCE_MARGIN) {
       setScrolledToEnd(true);
     }
+  };
+
+  // رصد التمرير: يُحدّث القيم الديناميكية لحظة الحدث ثم يقيّم معادلة التسامح
+  const onTermsScroll = (e) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    layoutHeightRef.current = layoutMeasurement.height;
+    contentHeightRef.current = contentSize.height;
+    scrollOffsetRef.current = contentOffset.y;
+    evaluateBottomReached();
   };
 
   return (
@@ -180,6 +202,9 @@ export default function AuthScreen({ onAuthSuccess }) {
               onScroll={onTermsScroll}
               scrollEventThrottle={16}
               showsVerticalScrollIndicator
+              nestedScrollEnabled
+              onContentSizeChange={(w, h) => { contentHeightRef.current = h; evaluateBottomReached(); }}
+              onLayout={(ev) => { layoutHeightRef.current = ev.nativeEvent.layout.height; evaluateBottomReached(); }}
             >
               <Text style={styles.modalBody}>{t("terms_body", lang)}</Text>
             </ScrollView>
