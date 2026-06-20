@@ -41,6 +41,8 @@ function dualDateLine() {
   const hStr = `${h.hd} ${HIJRI_MONTHS[h.hm - 1] || ""} ${h.hy} هـ`;
   return { gregorian: g, hijri: hStr };
 }
+
+function escapeHtml(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
