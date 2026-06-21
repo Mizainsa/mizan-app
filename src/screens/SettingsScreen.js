@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { supabase } from "../services/supabaseClient";
 import { COLORS, RADIUS, THEMES } from "../lib/theme";
@@ -8,31 +9,44 @@ import { useTheme } from "../lib/ThemeContext";
 export default function SettingsScreen() {
   const [email, setEmail] = useState("");
   const { themeId, theme: TH, setTheme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email) setEmail(user.email);
+      try {
+        const res = await supabase.auth.getUser();
+        const user = res && res.data ? res.data.user : null;
+        if (mounted && user && user.email) setEmail(user.email);
+      } catch (e) {}
     })();
+    return () => { mounted = false; };
   }, []);
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الخروج.");
-    } else {
-      setEmail("");
-      Alert.alert("تم", "تم تسجيل خروجك بنجاح.");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الخروج.");
+      } else {
+        setEmail("");
+        Alert.alert("تم", "تم تسجيل خروجك بنجاح.");
+      }
+    } catch (e) {
+      Alert.alert("خطأ", "تعذّر تسجيل الخروج.");
     }
   };
 
-  const themeList = Object.keys(THEMES).map((k) => THEMES[k]);
+  const themeList = THEMES ? Object.keys(THEMES).map((k) => THEMES[k]) : [];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 130, paddingHorizontal: 20 }}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.headerTitle}>إعدادات الحساب</Text>
 
-      {/* بطاقة الملف التعريفي — تتبع لون الثيم */}
       <View style={[styles.profileCard, { backgroundColor: TH.primary }]}>
         <View style={styles.avatarBox}>
           <FontAwesome5 name="user-circle" size={34} color={COLORS.white} />
@@ -45,7 +59,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* ===== مظهر التطبيق: مبدّل الثيمات الأربعة (فعّال ويُخزَّن فوراً) ===== */}
+      {/* مظهر التطبيق: مبدّل الثيمات الأربعة */}
       <View style={styles.sectionLabelRow}>
         <View style={[styles.miniDot, { backgroundColor: TH.accent }]} />
         <Text style={styles.sectionLabel}>مظهر التطبيق</Text>
@@ -67,13 +81,12 @@ export default function SettingsScreen() {
                 <Text style={styles.themeName}>{t.name}</Text>
                 <Text style={styles.themeSub}>{t.label}</Text>
               </View>
-              {selected && <FontAwesome5 name="check-circle" size={16} color={t.accent} solid />}
+              {selected ? <FontAwesome5 name="check-circle" size={16} color={t.accent} solid /> : null}
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* قائمة الحساب */}
       <View style={styles.sectionLabelRow}>
         <View style={[styles.miniDot, { backgroundColor: TH.primary }]} />
         <Text style={styles.sectionLabel}>الحساب</Text>
@@ -83,16 +96,12 @@ export default function SettingsScreen() {
           <Text style={styles.menuText}>تعديل البيانات الشخصية</Text>
           <FontAwesome5 name="user" size={17} color={TH.primary} />
         </TouchableOpacity>
-
         <View style={styles.divider} />
-
         <TouchableOpacity style={styles.menuItem}>
           <Text style={styles.menuText}>إدارة الاشتراك المالي</Text>
           <FontAwesome5 name="credit-card" size={17} color={TH.primary} />
         </TouchableOpacity>
-
         <View style={styles.divider} />
-
         <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
           <Text style={[styles.menuText, { color: COLORS.danger }]}>تسجيل الخروج</Text>
           <FontAwesome5 name="sign-out-alt" size={17} color={COLORS.danger} />
@@ -103,7 +112,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg, paddingTop: 24, paddingHorizontal: 20 },
+  container: { flex: 1, backgroundColor: COLORS.bg },
   headerTitle: { fontFamily: "Cairo_800ExtraBold", fontSize: 22, color: COLORS.onyx, textAlign: "right", marginBottom: 22 },
   profileCard: {
     flexDirection: "row-reverse", alignItems: "center",
@@ -114,11 +123,9 @@ const styles = StyleSheet.create({
   profileInfo: { flex: 1, marginRight: 16, alignItems: "flex-end" },
   profileLabel: { fontFamily: "Tajawal_400Regular", fontSize: 12, color: "rgba(255,255,255,0.7)" },
   profileEmail: { fontFamily: "Cairo_800ExtraBold", fontSize: 15, color: COLORS.white, marginTop: 4, textAlign: "right", width: "100%" },
-
   sectionLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, marginTop: 4 },
   miniDot: { width: 7, height: 7, borderRadius: 3.5, marginLeft: 9 },
   sectionLabel: { fontFamily: "Cairo_800ExtraBold", fontSize: 15, color: COLORS.onyx },
-
   themeGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 20 },
   themeCard: {
     width: "48.5%", flexDirection: "row-reverse", alignItems: "center",
@@ -131,7 +138,6 @@ const styles = StyleSheet.create({
   themeInfo: { flex: 1, alignItems: "flex-end" },
   themeName: { fontFamily: "Cairo_800ExtraBold", fontSize: 13, color: COLORS.onyx },
   themeSub: { fontFamily: "Tajawal_400Regular", fontSize: 9.5, color: COLORS.textMuted, marginTop: 1 },
-
   menuContainer: {
     backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: 8,
     borderWidth: 1, borderColor: COLORS.borderSoft,

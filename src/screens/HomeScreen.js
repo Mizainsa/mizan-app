@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Platform, TextInput } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { HUBS, TOOLS, EXPERTS_COUNT, COLORS, APP_SUB } from "../lib/theme";
@@ -10,17 +11,29 @@ const CARD_WIDTH = (width - 44) / 2;
 
 export default function HomeScreen({ navigation }) {
   const { theme: TH } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  const openHub = (hub) => navigation.navigate("Section", { section: hub });
+  const openHub = (hub) => {
+    try {
+      if (navigation && typeof navigation.navigate === "function") {
+        navigation.navigate("Section", { section: hub });
+      }
+    } catch (e) {
+      // تجاهل أي خطأ في التنقّل بدل الانهيار
+    }
+  };
+
+  const hubs = Array.isArray(HUBS) ? HUBS : [];
+  const tools = Array.isArray(TOOLS) ? TOOLS : [];
 
   return (
     <View style={[styles.container, { backgroundColor: COLORS.bg }]}>
-      {/* ===== الهيدر الثابت بتدرّج الثيم ===== */}
+      {/* الهيدر الثابت بتدرّج الثيم — يحترم حافة النوتش عبر insets */}
       <LinearGradient
         colors={[TH.g1, TH.g2, TH.g3, TH.g4]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
         <View style={styles.headerRow}>
           <View style={styles.brand}>
@@ -44,7 +57,6 @@ export default function HomeScreen({ navigation }) {
 
         <Text style={styles.brandSub} numberOfLines={1}>{APP_SUB}</Text>
 
-        {/* مربع البحث داخل الهيدر، موسّط بعرض 90% */}
         <View style={styles.search}>
           <FontAwesome5 name="search" size={15} color={COLORS.textMuted} />
           <TextInput
@@ -56,7 +68,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </LinearGradient>
 
-      {/* ===== المحتوى القابل للتمرير (بين الهيدر والفوتر الثابتين) ===== */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionTitleRow}>
           <View style={[styles.miniDot, { backgroundColor: TH.accent }]} />
@@ -71,13 +82,12 @@ export default function HomeScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* شبكة المحاور الثمانية */}
         <View style={styles.grid}>
-          {HUBS.map((hub) => (
+          {hubs.map((hub) => (
             <TouchableOpacity key={hub.id} style={styles.cardTouch} activeOpacity={0.9} onPress={() => openHub(hub)}>
               <View style={styles.cardInner}>
                 <View style={[styles.iconContainer, { backgroundColor: TH.light }]}>
-                  <FontAwesome5 name={hub.icon} size={22} color={TH.primary} />
+                  <FontAwesome5 name={hub.icon || "circle"} size={22} color={TH.primary} />
                 </View>
                 <Text style={styles.cardTitle} numberOfLines={1}>{hub.title}</Text>
                 <Text style={styles.cardDesc} numberOfLines={2}>{hub.sub}</Text>
@@ -86,17 +96,16 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
 
-        {/* المساعد التقديري */}
         <View style={styles.toolsLabelRow}>
           <View style={[styles.miniDot, { backgroundColor: TH.primary }]} />
           <Text style={styles.sectionTitleText}>المساعد التقديري</Text>
         </View>
         <View style={styles.grid}>
-          {TOOLS.map((tool) => (
+          {tools.map((tool) => (
             <TouchableOpacity key={tool.id} style={styles.cardTouch} activeOpacity={0.9} onPress={() => openHub(tool)}>
               <View style={[styles.cardInner, styles.toolCard]}>
                 <View style={[styles.iconContainer, { backgroundColor: TH.light }]}>
-                  <FontAwesome5 name={tool.icon} size={22} color={TH.primary} />
+                  <FontAwesome5 name={tool.icon || "circle"} size={22} color={TH.primary} />
                 </View>
                 <Text style={styles.cardTitle} numberOfLines={1}>{tool.title}</Text>
                 <Text style={styles.cardDesc} numberOfLines={2}>{tool.sub}</Text>
@@ -105,7 +114,7 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
     </View>
   );
@@ -114,7 +123,6 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingTop: Platform.OS === "ios" ? 56 : 44,
     paddingHorizontal: 18, paddingBottom: 18,
     borderBottomLeftRadius: 26, borderBottomRightRadius: 26,
     shadowColor: "#0F5132", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 24, elevation: 10,
@@ -136,7 +144,6 @@ const styles = StyleSheet.create({
   langText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#fff" },
   badge: { position: "absolute", top: 6, right: 7, width: 7, height: 7, borderRadius: 3.5, borderWidth: 1.5 },
   brandSub: { fontFamily: "Tajawal_500Medium", fontSize: 11.5, color: "rgba(255,255,255,0.85)", textAlign: "right", marginTop: 6 },
-  // مربع البحث: موسّط 90% (مكافئ width:90%;margin:15px auto 0)
   search: {
     width: "90%", alignSelf: "center", marginTop: 15,
     flexDirection: "row", alignItems: "center",
@@ -155,7 +162,6 @@ const styles = StyleSheet.create({
   noteBold: { fontFamily: "Tajawal_700Bold" },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   cardTouch: { width: CARD_WIDTH, marginBottom: 12 },
-  // بطاقة المحور: ارتفاع ثابت 140px لا يتغيّر
   cardInner: {
     backgroundColor: COLORS.surface, borderRadius: 22, padding: 16,
     height: 140, alignItems: "flex-end", justifyContent: "flex-start",
@@ -165,7 +171,6 @@ const styles = StyleSheet.create({
   toolCard: { borderColor: COLORS.glassBorder },
   iconContainer: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 10 },
   cardTitle: { fontFamily: "Cairo_800ExtraBold", fontSize: 13.5, color: COLORS.onyx, textAlign: "right", width: "100%" },
-  // قص النص لسطرين كحد أقصى (مكافئ line-clamp:2 في RN)
   cardDesc: { fontFamily: "Tajawal_500Medium", fontSize: 11, color: COLORS.textDim, textAlign: "right", width: "100%", marginTop: 3, lineHeight: 16 },
   toolsLabelRow: { flexDirection: "row", alignItems: "center", marginTop: 22, marginBottom: 14 },
 });
