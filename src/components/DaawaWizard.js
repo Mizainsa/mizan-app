@@ -15,19 +15,14 @@ import {
 import { FontAwesome5 } from "@expo/vector-icons";
 import { supabase } from "../services/supabaseClient";
 import { askAI } from "../lib/api";
-import { useTheme, scaled } from "../lib/ThemeContext";
-import { t } from "../lib/i18n";
-import AuthScreen from "../screens/AuthScreen";
+import { COLORS } from "../lib/theme";
 
 const { width } = Dimensions.get("window");
 
 export default function DaawaWizard({ onClose, onSaveSuccess }) {
-  const { colors, fontScale, lang, dir } = useTheme();
-  const styles = makeStyles(colors, fontScale, dir);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const [formData, setFormData] = useState({
     type: "حقوقية عامة",
@@ -70,9 +65,9 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
 
     try {
       const ans = await askAI(legalCharter + "\n\n" + userData, "sayigh_daawa", []);
-      setGeneratedText(ans || t("daawa_gen_err", lang));
+      setGeneratedText(ans || "تعذّر توليد الصحيفة. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
     } catch (e) {
-      setGeneratedText(t("daawa_gen_err", lang));
+      setGeneratedText("تعذّر توليد الصحيفة. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
     }
     setLoading(false);
   };
@@ -83,7 +78,7 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        setShowAuthModal(true);
+        Alert.alert("تنبيه", "يلزم تسجيل الدخول لإتمام هذا الإجراء.");
         setSaveLoading(false);
         return;
       }
@@ -101,21 +96,14 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
 
       if (error) throw error;
 
-      Alert.alert(t("daawa_saved_title", lang), t("daawa_saved_msg", lang));
+      Alert.alert("تم الحفظ", "تم حفظ الصحيفة في مكتبتك بنجاح.");
       if (onSaveSuccess) onSaveSuccess();
       onClose();
     } catch (error) {
-      Alert.alert(t("daawa_save_err", lang), error.message);
+      Alert.alert("خطأ في الحفظ", error.message);
     } finally {
       setSaveLoading(false);
     }
-  };
-
-  const handleAuthSuccess = () => {
-    setShowAuthModal(false);
-    setTimeout(() => {
-      saveToLibrary();
-    }, 500);
   };
 
   return (
@@ -124,9 +112,9 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
 
         <View style={styles.wizardHeader}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <FontAwesome5 name="times" size={14} color={colors.royal} />
+            <FontAwesome5 name="times" size={14} color={COLORS.royal} />
           </TouchableOpacity>
-          <Text style={styles.wizardTitle}>{t("daawa_wizard_title", lang)}</Text>
+          <Text style={styles.wizardTitle}>أداة صياغة صحيفة الدعوى (خبير ناجز)</Text>
         </View>
 
         {step <= 3 && (
@@ -144,15 +132,15 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
 
           {step === 1 && (
             <View style={styles.stepContent}>
-              <Text style={styles.stepLabel}>{t("daawa_step1", lang)}</Text>
-              {[{v:"حقوقية عامة",k:"court_general"},{v:"عمالية (منصة قوى)",k:"court_labor"},{v:"تجاري واستثماري",k:"court_commercial"},{v:"أحوال شخصية",k:"court_personal"}].map((ct) => (
+              <Text style={styles.stepLabel}>1. اختر اختصاص المحكمة وتصنيف الدعوى:</Text>
+              {["حقوقية عامة", "عمالية (منصة قوى)", "تجاري واستثماري", "أحوال شخصية"].map((t) => (
                 <TouchableOpacity
-                  key={ct.v}
-                  style={[styles.radioOption, formData.type === ct.v && styles.radioOptionActive]}
-                  onPress={() => setFormData({ ...formData, type: ct.v })}
+                  key={t}
+                  style={[styles.radioOption, formData.type === t && styles.radioOptionActive]}
+                  onPress={() => setFormData({ ...formData, type: t })}
                 >
-                  <Text style={[styles.radioText, formData.type === ct.v && styles.radioTextActive]}>{t(ct.k, lang)}</Text>
-                  <View style={[styles.radioCircle, formData.type === ct.v && styles.radioCircleActive]} />
+                  <Text style={[styles.radioText, formData.type === t && styles.radioTextActive]}>{t}</Text>
+                  <View style={[styles.radioCircle, formData.type === t && styles.radioCircleActive]} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -160,21 +148,21 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
 
           {step === 2 && (
             <View style={styles.stepContent}>
-              <Text style={styles.stepLabel}>{t("daawa_step2", lang)}</Text>
-              <Text style={styles.inputTitle}>{t("daawa_plaintiff", lang)}</Text>
+              <Text style={styles.stepLabel}>2. أطراف النزاع القانوني المعنيين:</Text>
+              <Text style={styles.inputTitle}>اسم المدعي الكامل (أنت أو من تمثله):</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder={t("daawa_plaintiff_ph", lang)}
-                placeholderTextColor={colors.textMuted}
+                placeholder="أدخل الاسم الكامل أو اسم منشأتك..."
+                placeholderTextColor={COLORS.textMuted}
                 value={formData.plaintiff}
                 onChangeText={(text) => setFormData({ ...formData, plaintiff: text })}
                 textAlign="right"
               />
-              <Text style={styles.inputTitle}>{t("daawa_defendant", lang)}</Text>
+              <Text style={styles.inputTitle}>اسم المدعى عليه (الخصم أو الشركة المشكو ضدها):</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder={t("daawa_defendant_ph", lang)}
-                placeholderTextColor={colors.textMuted}
+                placeholder="أدخل اسم الخصم أو الشركة المدعى عليها..."
+                placeholderTextColor={COLORS.textMuted}
                 value={formData.defendant}
                 onChangeText={(text) => setFormData({ ...formData, defendant: text })}
                 textAlign="right"
@@ -184,12 +172,12 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
 
           {step === 3 && (
             <View style={styles.stepContent}>
-              <Text style={styles.stepLabel}>{t("daawa_step3", lang)}</Text>
-              <Text style={styles.inputTitle}>{t("daawa_details_label", lang)}</Text>
+              <Text style={styles.stepLabel}>3. تفاصيل الواقعة والنزاع:</Text>
+              <Text style={styles.inputTitle}>اسرد المشكلة باختصار وحرية (سيعاد صياغتها قضائيا):</Text>
               <TextInput
                 style={[styles.textInput, styles.textArea]}
-                placeholder={t("daawa_details_ph", lang)}
-                placeholderTextColor={colors.textMuted}
+                placeholder="اكتب هنا ما حدث معك بالتفصيل، وسيتكفل ميزان بإعادة هيكلتها قضائيا."
+                placeholderTextColor={COLORS.textMuted}
                 multiline
                 numberOfLines={6}
                 value={formData.details}
@@ -203,12 +191,12 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
             <View style={styles.stepContent}>
               {loading ? (
                 <View style={styles.loadingWrapper}>
-                  <ActivityIndicator size="large" color={colors.royal} />
-                  <Text style={styles.loadingText}>{t("daawa_loading", lang)}</Text>
+                  <ActivityIndicator size="large" color={COLORS.royal} />
+                  <Text style={styles.loadingText}>جاري استدعاء المحرك القضائي وصياغة الصحيفة...</Text>
                 </View>
               ) : (
                 <View style={styles.resultWrapper}>
-                  <Text style={styles.stepLabel}>{t("daawa_final_label", lang)}</Text>
+                  <Text style={styles.stepLabel}>صياغة صحيفة الدعوى النهائية:</Text>
                   <View style={styles.docScrollBox}>
                     <ScrollView showsVerticalScrollIndicator={false}>
                       <Text style={styles.docOutputText}>{generatedText}</Text>
@@ -221,11 +209,11 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
                   >
                     <View style={styles.saveGradient}>
                       {saveLoading ? (
-                        <ActivityIndicator size="small" color={colors.white} />
+                        <ActivityIndicator size="small" color={COLORS.white} />
                       ) : (
                         <>
-                          <Text style={styles.saveText}>{t("daawa_save", lang)}</Text>
-                          <FontAwesome5 name="cloud-upload-alt" size={14} color={colors.white} style={{ marginLeft: 8 }} />
+                          <Text style={styles.saveText}>حفظ المستند في مكتبتي</Text>
+                          <FontAwesome5 name="cloud-upload-alt" size={14} color={COLORS.white} style={{ marginLeft: 8 }} />
                         </>
                       )}
                     </View>
@@ -240,81 +228,64 @@ export default function DaawaWizard({ onClose, onSaveSuccess }) {
           <View style={styles.wizardFooter}>
             {step < 4 ? (
               <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                <Text style={styles.nextButtonText}>{step === 3 ? t("daawa_generate", lang) : t("next", lang)}</Text>
+                <Text style={styles.nextButtonText}>{step === 3 ? "توليد النص القضائي" : "التالي"}</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={[styles.nextButton, { backgroundColor: colors.royalSoft }]} onPress={onClose}>
-                <Text style={[styles.nextButtonText, { color: colors.royal }]}>{t("daawa_close", lang)}</Text>
+              <TouchableOpacity style={[styles.nextButton, { backgroundColor: COLORS.royalSoft }]} onPress={onClose}>
+                <Text style={[styles.nextButtonText, { color: COLORS.royal }]}>إغلاق المعالج</Text>
               </TouchableOpacity>
             )}
             {step > 1 && step < 4 && (
               <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-                <Text style={styles.backButtonText}>{t("daawa_back", lang)}</Text>
+                <Text style={styles.backButtonText}>السابق</Text>
               </TouchableOpacity>
             )}
           </View>
         )}
       </View>
 
-      <Modal
-        visible={showAuthModal}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowAuthModal(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: colors.bgPure }}>
-          <View style={styles.modalHeaderCloseRow}>
-            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowAuthModal(false)}>
-              <Text style={styles.modalCloseButtonText}>{t("daawa_undo", lang)}</Text>
-              <FontAwesome5 name="arrow-right" size={14} color={colors.royal} style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
-          </View>
-          <AuthScreen onAuthSuccess={handleAuthSuccess} />
-        </View>
-      </Modal>
+
     </View>
   );
 }
 
-function makeStyles(colors, fontScale, dir = { isRTL: true, row: "row-reverse", rowStart: "flex-end" }) {
-  return StyleSheet.create({
+const styles = StyleSheet.create({
   wizardOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 1000, backgroundColor: "rgba(10,35,66,0.45)", justifyContent: "flex-end" },
-  wizardContainer: { width: "100%", height: "88%", borderTopLeftRadius: 32, borderTopRightRadius: 32, borderWidth: 1, borderColor: colors.border, overflow: "hidden", backgroundColor: colors.bgPure },
-  wizardHeader: { flexDirection: "row", alignItems: "center", padding: 20, borderBottomWidth: 1, borderColor: colors.borderSoft, justifyContent: "space-between" },
-  closeButton: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.royalSoft, alignItems: "center", justifyContent: "center" },
-  wizardTitle: { fontFamily: "Cairo_800ExtraBold", fontSize: 14.5, color: colors.royal },
+  wizardContainer: { width: "100%", height: "88%", borderTopLeftRadius: 32, borderTopRightRadius: 32, borderWidth: 1, borderColor: COLORS.border, overflow: "hidden", backgroundColor: COLORS.bgPure },
+  wizardHeader: { flexDirection: "row", alignItems: "center", padding: 20, borderBottomWidth: 1, borderColor: COLORS.borderSoft, justifyContent: "space-between" },
+  closeButton: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.royalSoft, alignItems: "center", justifyContent: "center" },
+  wizardTitle: { fontFamily: "Cairo_800ExtraBold", fontSize: 14.5, color: COLORS.royal },
   progressRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginVertical: 18, width: "100%" },
   stepIndicatorWrapper: { flexDirection: "row", alignItems: "center" },
   stepDot: { width: 10, height: 10, borderRadius: 5 },
-  stepDotActive: { backgroundColor: colors.royal },
-  stepDotInactive: { backgroundColor: colors.border },
+  stepDotActive: { backgroundColor: COLORS.royal },
+  stepDotInactive: { backgroundColor: COLORS.border },
   stepLine: { height: 2, width: 65, marginHorizontal: 4 },
-  stepLineActive: { backgroundColor: colors.royal },
-  stepLineInactive: { backgroundColor: colors.border },
+  stepLineActive: { backgroundColor: COLORS.royal },
+  stepLineInactive: { backgroundColor: COLORS.border },
   wizardScroll: { padding: 20, paddingBottom: 40 },
   stepContent: { width: "100%", alignItems: "flex-end" },
-  stepLabel: { fontFamily: "Cairo_800ExtraBold", fontSize: 15.5, color: colors.onyx, marginBottom: 16, textAlign: "right", width: "100%" },
-  radioOption: { flexDirection: dir.row, alignItems: "center", justifyContent: dir.rowStart, width: "100%", height: 50, backgroundColor: colors.bg, borderRadius: 14, paddingHorizontal: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.borderSoft },
-  radioOptionActive: { borderColor: colors.royal, backgroundColor: colors.royalSoft },
-  radioText: { fontFamily: "Tajawal_500Medium", fontSize: 13.5, color: colors.textDim, marginHorizontal: 12 },
-  radioTextActive: { color: colors.royal, fontFamily: "Tajawal_700Bold" },
-  radioCircle: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.textMuted },
-  radioCircleActive: { borderColor: colors.royal, backgroundColor: colors.royal },
-  inputTitle: { fontFamily: "Tajawal_700Bold", fontSize: 12.5, color: colors.textDim, marginBottom: 6, marginTop: 12, textAlign: "right", width: "100%" },
-  textInput: { width: "100%", height: 48, backgroundColor: colors.bg, borderRadius: 14, borderWidth: 1, borderColor: colors.borderSoft, paddingHorizontal: 16, color: colors.onyx, fontFamily: "Tajawal_500Medium", fontSize: 13, textAlign: "right" },
+  stepLabel: { fontFamily: "Cairo_800ExtraBold", fontSize: 15.5, color: COLORS.onyx, marginBottom: 16, textAlign: "right", width: "100%" },
+  radioOption: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", width: "100%", height: 50, backgroundColor: COLORS.bg, borderRadius: 14, paddingHorizontal: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.borderSoft },
+  radioOptionActive: { borderColor: COLORS.royal, backgroundColor: COLORS.royalSoft },
+  radioText: { fontFamily: "Tajawal_500Medium", fontSize: 13.5, color: COLORS.textDim, marginRight: 12 },
+  radioTextActive: { color: COLORS.royal, fontFamily: "Tajawal_700Bold" },
+  radioCircle: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: COLORS.textMuted },
+  radioCircleActive: { borderColor: COLORS.royal, backgroundColor: COLORS.royal },
+  inputTitle: { fontFamily: "Tajawal_700Bold", fontSize: 12.5, color: COLORS.textDim, marginBottom: 6, marginTop: 12, textAlign: "right", width: "100%" },
+  textInput: { width: "100%", height: 48, backgroundColor: COLORS.bg, borderRadius: 14, borderWidth: 1, borderColor: COLORS.borderSoft, paddingHorizontal: 16, color: COLORS.onyx, fontFamily: "Tajawal_500Medium", fontSize: 13, textAlign: "right" },
   textArea: { height: 120, paddingTop: 12, textAlignVertical: "top" },
   loadingWrapper: { width: "100%", alignItems: "center", paddingVertical: 40 },
-  loadingText: { fontFamily: "Tajawal_500Medium", fontSize: 13, color: colors.textDim, marginTop: 16, textAlign: "center" },
+  loadingText: { fontFamily: "Tajawal_500Medium", fontSize: 13, color: COLORS.textDim, marginTop: 16, textAlign: "center" },
   resultWrapper: { width: "100%", alignItems: "flex-end" },
-  docScrollBox: { width: "100%", height: 260, backgroundColor: colors.bg, borderRadius: 16, borderWidth: 1, borderColor: colors.borderSoft, padding: 16, marginBottom: 20 },
-  docOutputText: { fontFamily: "Tajawal_500Medium", fontSize: 13.5, color: colors.textBody, lineHeight: 22, textAlign: "right" },
+  docScrollBox: { width: "100%", height: 260, backgroundColor: COLORS.bg, borderRadius: 16, borderWidth: 1, borderColor: COLORS.borderSoft, padding: 16, marginBottom: 20 },
+  docOutputText: { fontFamily: "Tajawal_500Medium", fontSize: 13.5, color: COLORS.textBody, lineHeight: 22, textAlign: "right" },
   saveLibraryButton: { width: "100%", height: 50, borderRadius: 14, overflow: "hidden" },
-  saveGradient: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: colors.royal },
-  saveText: { fontFamily: "Cairo_800ExtraBold", fontSize: 14, color: colors.white },
-  wizardFooter: { flexDirection: dir.row, justifyContent: "space-between", alignItems: "center", padding: 20, borderTopWidth: 1, borderColor: colors.borderSoft, paddingBottom: Platform.OS === "ios" ? 34 : 20 },
-  nextButton: { height: 46, paddingHorizontal: 28, backgroundColor: colors.royal, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  nextButtonText: { fontFamily: "Cairo_800ExtraBold", fontSize: 13.5, color: colors.white },
+  saveGradient: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: COLORS.royal },
+  saveText: { fontFamily: "Cairo_800ExtraBold", fontSize: 14, color: COLORS.white },
+  wizardFooter: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", padding: 20, borderTopWidth: 1, borderColor: COLORS.borderSoft, paddingBottom: Platform.OS === "ios" ? 34 : 20 },
+  nextButton: { height: 46, paddingHorizontal: 28, backgroundColor: COLORS.royal, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  nextButtonText: { fontFamily: "Cairo_800ExtraBold", fontSize: 13.5, color: COLORS.white },
   backButton: { height: 46, paddingHorizontal: 20, backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
-  backButtonText: { fontFamily: "Tajawal_700Bold", fontSize: 13.5, color: colors.textDim },
-  });
-};
+  backButtonText: { fontFamily: "Tajawal_700Bold", fontSize: 13.5, color: COLORS.textDim },
+});
