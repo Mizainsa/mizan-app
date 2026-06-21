@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Alert, Platform, StatusBar, I18nManager, View, ActivityIndicator } from "react-native";
+import { Alert, Platform, StatusBar, I18nManager, View, Text, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -49,6 +49,7 @@ function wrapScreen(ScreenComp) {
     );
   };
 }
+
 
 // التبويبات الأربعة — تستخدم Tab المعرّف في الأعلى
 function MainTabs() {
