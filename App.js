@@ -29,6 +29,7 @@ try {
   I18nManager.swapLeftAndRightInRTL(true);
 } catch (e) {}
 
+// ===== التعريفات في المستوى الأعلى (خارج الدوال) — المعيار القياسي، مرة واحدة =====
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 
@@ -38,7 +39,18 @@ function ToolsScreen(props) {
   return <SectionScreen {...props} route={toolRoute} />;
 }
 
-// التبويبات الأربعة — لا stack متداخل، الشاشات الفرعية في RootStack
+// غلاف يلفّ كل شاشة بـ ErrorBoundary — يكشف أي شاشة تنهار وسببها على الشاشة بدل البياض
+function wrapScreen(ScreenComp) {
+  return function Wrapped(props) {
+    return (
+      <ErrorBoundary>
+        <ScreenComp {...props} />
+      </ErrorBoundary>
+    );
+  };
+}
+
+// التبويبات الأربعة — تستخدم Tab المعرّف في الأعلى
 function MainTabs() {
   const { theme: TH } = useTheme();
   return (
@@ -67,10 +79,10 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="الرئيسية" component={HomeScreen} />
-      <Tab.Screen name="المساعد التقديري" component={ToolsScreen} />
-      <Tab.Screen name="الاشتراكات" component={SubscriptionScreen} />
-      <Tab.Screen name="حسابي" component={SettingsScreen} />
+      <Tab.Screen name="الرئيسية" component={wrapScreen(HomeScreen)} />
+      <Tab.Screen name="المساعد التقديري" component={wrapScreen(ToolsScreen)} />
+      <Tab.Screen name="الاشتراكات" component={wrapScreen(SubscriptionScreen)} />
+      <Tab.Screen name="حسابي" component={wrapScreen(SettingsScreen)} />
     </Tab.Navigator>
   );
 }
@@ -87,10 +99,11 @@ function AppInner() {
     },
   };
 
+  // شرط ready يحمي NavigationContainer فقط (لا الـ Navigator)
   if (!ready) {
     return (
       <View style={{ flex: 1, backgroundColor: COLORS.bg, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={TH.primary} />
+        <ActivityIndicator size="large" color={COLORS.royal} />
       </View>
     );
   }
@@ -98,7 +111,6 @@ function AppInner() {
   return (
     <NavigationContainer theme={NavTheme}>
       <StatusBar barStyle="light-content" backgroundColor={TH.g1} />
-      {/* Stack جذري واحد مسطّح — لا تعشيش متعارض. البصمة أولاً ثم التبويبات والشاشات الفرعية */}
       <RootStack.Navigator initialRouteName="Auth" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Auth" component={AuthScreen} />
         <RootStack.Screen name="MainTabs" component={MainTabs} />
