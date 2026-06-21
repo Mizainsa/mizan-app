@@ -83,7 +83,7 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         <View style={styles.grid}>
-          {hubs.map((hub) => (
+          {(hubs || []).map((hub) => (
             <TouchableOpacity key={hub.id} style={styles.cardTouch} activeOpacity={0.9} onPress={() => openHub(hub)}>
               <View style={styles.cardInner}>
                 <View style={[styles.iconContainer, { backgroundColor: TH.light }]}>
@@ -101,7 +101,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.sectionTitleText}>المساعد التقديري</Text>
         </View>
         <View style={styles.grid}>
-          {tools.map((tool) => (
+          {(tools || []).map((tool) => (
             <TouchableOpacity key={tool.id} style={styles.cardTouch} activeOpacity={0.9} onPress={() => openHub(tool)}>
               <View style={[styles.cardInner, styles.toolCard]}>
                 <View style={[styles.iconContainer, { backgroundColor: TH.light }]}>

@@ -77,7 +77,11 @@ export default function SectionScreen({ route, navigation }) {
           ref={scrollViewRef}
           contentContainerStyle={styles.chatContent}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => { try { scrollViewRef.current && scrollViewRef.current.scrollToEnd({ animated: true }); } catch (e) {} }}
+          onContentSizeChange={() => {
+            setTimeout(() => {
+              try { scrollViewRef.current && scrollViewRef.current.scrollToEnd({ animated: true }); } catch (e) {}
+            }, 100);
+          }}
         >
           {messages.map((msg) => (
             <View key={msg.id} style={[styles.messageRow, msg.isBot ? styles.botRow : styles.userRow]}>
