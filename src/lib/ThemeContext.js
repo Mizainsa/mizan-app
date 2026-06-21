@@ -4,25 +4,30 @@ import { THEMES, DEFAULT_THEME } from "./theme";
 
 const THEME_KEY = "mizan_theme_v1";
 
-const ThemeContext = createContext({
+// القيمة الافتراضية كاملة — حتى لو استُدعي useTheme خارج Provider لا ينهار
+const FALLBACK = {
   themeId: DEFAULT_THEME,
   theme: THEMES[DEFAULT_THEME],
   setTheme: () => {},
-  ready: false,
-});
+  ready: true,
+};
+
+const ThemeContext = createContext(FALLBACK);
 
 export function ThemeProvider({ children }) {
   const [themeId, setThemeId] = useState(DEFAULT_THEME);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const saved = await AsyncStorage.getItem(THEME_KEY);
-        if (saved && THEMES[saved]) setThemeId(saved);
+        if (mounted && saved && THEMES[saved]) setThemeId(saved);
       } catch (e) {}
-      setReady(true);
+      if (mounted) setReady(true);
     })();
+    return () => { mounted = false; };
   }, []);
 
   const setTheme = useCallback(async (id) => {
@@ -31,16 +36,17 @@ export function ThemeProvider({ children }) {
     try { await AsyncStorage.setItem(THEME_KEY, id); } catch (e) {}
   }, []);
 
-  const value = {
-    themeId,
-    theme: THEMES[themeId] || THEMES[DEFAULT_THEME],
-    setTheme,
-    ready,
-  };
+  // حماية: الثيم النشط دائماً صالح
+  const activeTheme = THEMES[themeId] || THEMES[DEFAULT_THEME];
+
+  const value = { themeId, theme: activeTheme, setTheme, ready };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
+// حماية مزدوجة: لو رجع السياق فارغاً لأي سبب، نرجع FALLBACK بدل undefined
 export function useTheme() {
-  return useContext(ThemeContext);
+  const ctx = useContext(ThemeContext);
+  if (!ctx || !ctx.theme) return FALLBACK;
+  return ctx;
 }
