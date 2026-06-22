@@ -22,13 +22,18 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-localization",
+      "expo-font",
+      "expo-splash-screen"
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "64d231cd-9597-48ac-bdba-b2d7c60466e5"
-      }
+      },
+      "supportsRTL": true,
+      "forcesRTL": true
     },
     "icon": "./assets/icon.png",
     "runtimeVersion": {

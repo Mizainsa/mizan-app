@@ -1,45 +1,131 @@
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, I18nManager } from 'react-native';
+import { useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  Pressable,
+  Image,
+  StyleSheet,
+  I18nManager,
+  Animated,
+  Easing,
+  Dimensions,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { axes } from '../../data/axes';
 
-// محاذاة واعية للاتجاه: يمين للعربي، يسار للإنجليزي مستقبلاً
 const ALIGN = I18nManager.isRTL ? 'right' : 'left';
-
-// تحويل الأرقام إلى أرقام عربية
 const toArabic = (n) => String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
+const { width: SCREEN_W } = Dimensions.get('window');
+
+const AXIS_ICON = {
+  security: 'shield-outline',
+  prosecution: 'document-text-outline',
+  judiciary: 'business-outline',
+  family: 'people-outline',
+  finance: 'cash-outline',
+  labor: 'briefcase-outline',
+  realestate: 'home-outline',
+  commerce: 'storefront-outline',
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(shimmer, {
+        toValue: 1,
+        duration: 3800,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      })
+    ).start();
+  }, [shimmer]);
+
+  const translateX = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-SCREEN_W, SCREEN_W],
+  });
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.brand}>ميزان</Text>
-            <Text style={styles.brandSub}>مساعد استرشادي للتوعية</Text>
+      <LinearGradient
+        colors={[colors.emerald, colors.emeraldDeep]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 14 }]}
+      >
+        <Animated.View
+          style={[styles.shimmer, { transform: [{ translateX }] }]}
+          pointerEvents="none"
+        >
+          <LinearGradient
+            colors={['transparent', 'rgba(245,228,160,0.30)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.shimmerFill}
+          />
+        </Animated.View>
+
+        <View style={styles.headerTop}>
+          <View style={styles.brand}>
+            <View style={styles.brandIcon}>
+              <Image
+                source={require('../../assets/scale.png')}
+                style={styles.scaleImg}
+                resizeMode="contain"
+              />
+            </View>
+            <MaskedView maskElement={<Text style={styles.brandName}>ميزان</Text>}>
+              <LinearGradient
+                colors={['#FFFFFF', '#FBEFC6', colors.goldLight]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+              >
+                <Text style={[styles.brandName, { opacity: 0 }]}>ميزان</Text>
+              </LinearGradient>
+            </MaskedView>
           </View>
-          <Pressable style={styles.bell} hitSlop={8}>
-            <View style={styles.bellDot} />
-          </Pressable>
+
+          <View style={styles.actions}>
+            <Pressable style={styles.hbtn}>
+              <Text style={styles.lng}>AR</Text>
+            </Pressable>
+            <Pressable style={styles.hbtn}>
+              <Ionicons name="notifications-outline" size={21} color={colors.goldLight} />
+              <View style={styles.dot} />
+            </Pressable>
+          </View>
         </View>
 
-        <View style={styles.searchBox}>
+        <Text style={styles.tagline}>مساعدك الذكي المتخصّص — ٢٥ مختصّاً في خدمتك</Text>
+
+        <View style={styles.search}>
+          <Ionicons name="search" size={19} color={colors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="ابحث عن خدمة أو جهة"
+            placeholder="ابحث عن خدمة أو سؤال..."
             placeholderTextColor={colors.muted}
             textAlign={ALIGN}
           />
         </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>المحاور</Text>
+        <View style={styles.seclabel}>
+          <View style={styles.secbar} />
+          <Text style={styles.sectionTitle}>المحاور</Text>
+        </View>
 
         <View style={styles.grid}>
           {axes.map((axis) => (
@@ -47,6 +133,13 @@ export default function HomeScreen() {
               key={axis.id}
               style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
             >
+              <View style={styles.cardEmb}>
+                <Ionicons
+                  name={AXIS_ICON[axis.id] || 'ellipse-outline'}
+                  size={18}
+                  color={colors.goldLight}
+                />
+              </View>
               <Text style={styles.cardTitle}>{axis.title}</Text>
               <Text style={styles.cardCount}>{toArabic(axis.experts.length)} خبراء</Text>
             </Pressable>
@@ -54,7 +147,7 @@ export default function HomeScreen() {
         </View>
 
         <Text style={styles.disclaimer}>
-          ميزان مساعد استرشادي للتوعية، والمعلومات قد تتغيّر، ويُنصح بالتحقّق من مختصّ قبل الإجراء.
+          المعلومات قابلة للتحديث، ويُنصح باستشارة مختصّ قبل الإجراء.
         </Text>
       </ScrollView>
     </View>
@@ -62,108 +155,135 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
+  root: { flex: 1, backgroundColor: colors.bg },
   header: {
-    backgroundColor: colors.emerald,
-    paddingHorizontal: 18,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
-  headerRow: {
+  shimmer: { position: 'absolute', top: 0, left: 0, bottom: 0, width: SCREEN_W },
+  shimmerFill: { flex: 1 },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  brand: {
-    color: colors.goldLight,
-    fontSize: 30,
-    fontWeight: '800',
-    textAlign: ALIGN,
-  },
-  brandSub: {
-    color: colors.headerSub,
-    fontSize: 13,
-    marginTop: 2,
-    textAlign: ALIGN,
-  },
-  bell: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  brandIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    backgroundColor: 'rgba(227,199,102,0.13)',
+    borderWidth: 1,
+    borderColor: 'rgba(227,199,102,0.38)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bellDot: {
+  scaleImg: { width: 36, height: 36 },
+  brandName: {
+    fontFamily: 'Cairo_900Black',
+    fontSize: 29,
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  hbtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(227,199,102,0.30)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lng: {
+    fontFamily: 'Cairo_800ExtraBold',
+    fontSize: 12.5,
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  dot: {
+    position: 'absolute',
+    top: 9,
+    right: 9,
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: colors.goldLight,
+    backgroundColor: '#E11D48',
+    borderWidth: 2,
+    borderColor: '#0E4A2E',
   },
-  searchBox: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    height: 48,
+  tagline: {
+    fontFamily: 'Tajawal_500Medium',
+    fontSize: 13.5,
+    color: 'rgba(255,255,255,0.82)',
+    textAlign: ALIGN,
     marginTop: 16,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
+  },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.card,
+    borderRadius: 15,
+    height: 50,
+    paddingHorizontal: 15,
+    marginTop: 16,
   },
   searchInput: {
-    fontSize: 15,
+    flex: 1,
+    fontFamily: 'Tajawal_400Regular',
+    fontSize: 14.5,
     color: colors.textDark,
     padding: 0,
   },
-  body: {
-    padding: 18,
-    paddingBottom: 40,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.emerald,
-    textAlign: ALIGN,
-    marginTop: 4,
-    marginBottom: 14,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
+  body: { padding: 18, paddingBottom: 40 },
+  seclabel: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 15 },
+  secbar: { width: 26, height: 3, borderRadius: 2, backgroundColor: colors.gold },
+  sectionTitle: { fontFamily: 'Cairo_700Bold', fontSize: 18, color: colors.emerald },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   card: {
     width: '48%',
-    minHeight: 94,
+    minHeight: 104,
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    marginBottom: 14,
+    borderColor: '#E9F0EB',
+    padding: 15,
+    marginBottom: 13,
     justifyContent: 'space-between',
   },
-  cardPressed: {
-    backgroundColor: '#F2F7F4',
+  cardPressed: { backgroundColor: '#F2F7F4' },
+  cardEmb: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.emerald,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 11,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 14.5,
     color: colors.textDark,
+    lineHeight: 21,
     textAlign: ALIGN,
   },
   cardCount: {
-    fontSize: 12.5,
-    fontWeight: '600',
+    fontFamily: 'Tajawal_700Bold',
+    fontSize: 12,
     color: colors.gold,
+    marginTop: 7,
     textAlign: ALIGN,
-    marginTop: 8,
   },
   disclaimer: {
+    fontFamily: 'Tajawal_400Regular',
     fontSize: 11.5,
-    lineHeight: 18,
+    lineHeight: 19,
     color: colors.muted,
     textAlign: 'center',
     marginTop: 12,

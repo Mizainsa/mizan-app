@@ -38,3 +38,4 @@ credentials.json
 
 # typescript
 *.tsbuildinfo
+dist/
