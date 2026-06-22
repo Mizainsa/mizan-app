@@ -6,10 +6,18 @@ import { COLORS, RADIUS } from "../lib/theme";
 import { useTheme } from "../lib/ThemeContext";
 
 const PLANS = [
-  { id: "basic", name: "الباقة الأساسية", price: "29", period: "شهرياً",
-    features: ["وصول لكل المحاور", "استشارات غير محدودة", "البحث الموحّد", "تنبيهات المواعيد"] },
-  { id: "pro", name: "الباقة الاحترافية", price: "59", period: "شهرياً", featured: true,
-    features: ["كل مزايا الأساسية", "أولوية في الردود", "الحاسبات التقديرية", "دعم مخصّص"] },
+  {
+    id: "free", name: "المجانية", price: "0", period: "مجاناً", free: true,
+    features: ["المرشد فقط", "تجربة محدودة", "تصفّح كل المحاور"],
+  },
+  {
+    id: "basic", name: "الأساسية", price: "35", period: "شهرياً",
+    features: ["كل المختصّين الـ25", "50 محادثة شهرياً", "البحث الموحّد"],
+  },
+  {
+    id: "pro", name: "المتقدمة", price: "65", period: "شهرياً", featured: true,
+    features: ["كل المختصّين الـ25", "100 محادثة شهرياً", "البحث الموحّد", "أولوية في الردود", "الحاسبات التقديرية", "الإشعارات والتنبيهات على المهل"],
+  },
 ];
 
 export default function SubscriptionScreen() {
@@ -30,7 +38,7 @@ export default function SubscriptionScreen() {
           <Text style={styles.planName}>{plan.name}</Text>
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: TH.primary }]}>{plan.price}</Text>
-            <Text style={styles.currency}>ريال / {plan.period}</Text>
+            <Text style={styles.currency}>{plan.free ? plan.period : "ريال / " + plan.period}</Text>
           </View>
           <View style={styles.featuresList}>
             {plan.features.map((f, i) => (
@@ -40,9 +48,15 @@ export default function SubscriptionScreen() {
               </View>
             ))}
           </View>
-          <TouchableOpacity style={[styles.buyButton, { backgroundColor: plan.featured ? TH.primary : COLORS.surface, borderColor: TH.primary, borderWidth: plan.featured ? 0 : 1.5 }]} activeOpacity={0.85}>
-            <Text style={[styles.buyText, { color: plan.featured ? "#fff" : TH.primary }]}>اشترك الآن</Text>
-          </TouchableOpacity>
+          {plan.free ? (
+            <View style={[styles.currentBox, { borderColor: TH.border }]}>
+              <Text style={[styles.currentText, { color: TH.textDim }]}>تنطلق تلقائياً بعد التسجيل</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={[styles.buyButton, { backgroundColor: plan.featured ? TH.primary : COLORS.surface, borderColor: TH.primary, borderWidth: plan.featured ? 0 : 1.5 }]} activeOpacity={0.85}>
+              <Text style={[styles.buyText, { color: plan.featured ? "#fff" : TH.primary }]}>اشترك الآن</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ))}
       <Text style={styles.note}>ميزان مساعد استرشادي للتوعية، والمعلومات قد تتغيّر، ويُنصح بالتحقّق من مختصّ قبل الإجراء.</Text>
@@ -67,5 +81,7 @@ const styles = StyleSheet.create({
   featureText: { fontFamily: "Tajawal_500Medium", fontSize: 13.5, color: COLORS.textBody, textAlign: "right" },
   buyButton: { height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   buyText: { fontFamily: "Cairo_800ExtraBold", fontSize: 15 },
+  currentBox: { height: 52, borderRadius: 14, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  currentText: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   note: { fontFamily: "Tajawal_400Regular", fontSize: 11, color: COLORS.textMuted, textAlign: "center", lineHeight: 18, marginTop: 6 },
 });

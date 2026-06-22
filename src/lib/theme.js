@@ -1,3 +1,5 @@
+// ===== هوية ميزان البصرية — الزمردي والذهبي =====
+
 export const THEMES = {
   emerald: {
     id: "emerald", name: "الزمردي",
@@ -44,6 +46,7 @@ export const COLORS = {
 
 export const RADIUS = { sm: 10, md: 14, lg: 20, xl: 28 };
 
+// ===== المحاور الثمانية + الخبراء الخمسة والعشرون =====
 export const HUBS = [
   { id: "security", title: "الأمن والبلاغات", icon: "shield-alt",
     experts: [
@@ -56,7 +59,7 @@ export const HUBS = [
       { id: "niyaba", name: "النيابة العامة", icon: "balance-scale-left" },
       { id: "criminal", name: "الضبط الجنائي", icon: "fingerprint" },
     ] },
-  { id: "judiciary", title: "القضاء وناجز", icon: "gavel",
+  { id: "judiciary", title: "القضاء وناجز", icon: "landmark",
     experts: [
       { id: "najiz", name: "ناجز والمحاكم", icon: "landmark" },
       { id: "taradhi", name: "التراضي والصلح", icon: "handshake" },

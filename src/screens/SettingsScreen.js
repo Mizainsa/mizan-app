@@ -13,6 +13,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 120, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
       <Text style={styles.pageTitle}>حسابي</Text>
+
       <Text style={styles.sectionLabel}>المظهر</Text>
       <View style={styles.themeGrid}>
         {themeList.map((t) => (
@@ -25,6 +26,20 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      <Text style={styles.sectionLabel}>الأمان</Text>
+      <View style={styles.menuCard}>
+        <View style={styles.menuRow}>
+          <View style={[styles.toggleTrack, { backgroundColor: COLORS.border }]}>
+            <View style={[styles.toggleThumb, { backgroundColor: "#fff" }]} />
+          </View>
+          <Text style={styles.menuLabel}>تفعيل البصمة عند الفتح</Text>
+          <View style={[styles.menuIcon, { backgroundColor: TH.light }]}>
+            <FontAwesome5 name="fingerprint" size={15} color={TH.primary} />
+          </View>
+        </View>
+      </View>
+
       <Text style={styles.sectionLabel}>الحساب</Text>
       <View style={styles.menuCard}>
         {[
@@ -43,6 +58,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
       <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85}>
         <Text style={styles.logoutText}>تسجيل الخروج</Text>
         <FontAwesome5 name="sign-out-alt" size={15} color={COLORS.danger} style={{ marginLeft: 8 }} />
@@ -64,6 +80,8 @@ const styles = StyleSheet.create({
   menuBorder: { borderTopWidth: 1, borderTopColor: COLORS.border },
   menuLabel: { fontFamily: "Tajawal_700Bold", fontSize: 14, color: COLORS.textBody, flex: 1, textAlign: "right", marginRight: 12 },
   menuIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  toggleTrack: { width: 44, height: 26, borderRadius: 13, padding: 3, justifyContent: "center" },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10 },
   logoutBtn: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", backgroundColor: "#FEF2F2", borderRadius: RADIUS.md, paddingVertical: 15, borderWidth: 1, borderColor: "#FECACA" },
   logoutText: { fontFamily: "Cairo_800ExtraBold", fontSize: 14.5, color: COLORS.danger },
 });

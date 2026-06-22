@@ -18,7 +18,7 @@ export default function AuthScreen({ navigation }) {
       } else if (navigation && typeof navigation.navigate === "function") {
         navigation.navigate("MainTabs");
       } else {
-        setMessage("تعذّر الانتقال: زر التنقّل غير متاح.");
+        setMessage("تعذّر الانتقال.");
       }
     } catch (e) {
       setMessage("خطأ في الانتقال: " + String(e.message || e));
@@ -82,7 +82,7 @@ export default function AuthScreen({ navigation }) {
         </TouchableOpacity>
         {message ? <Text style={styles.errorMessage}>{message}</Text> : null}
       </View>
-      <Text style={styles.footer}>إرشاد توعوي بالأنظمة والإجراءات السعودية</Text>
+      <Text style={styles.footer}>ميزان مساعد استرشادي للتوعية</Text>
     </View>
   );
 }
