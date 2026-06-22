@@ -20,7 +20,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { axes } from '../../data/axes';
 
-const ALIGN = I18nManager.isRTL ? 'right' : 'left';
 const toArabic = (n) => String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -38,6 +37,11 @@ const AXIS_ICON = {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const shimmer = useRef(new Animated.Value(0)).current;
+
+  // الاتجاه يُقرأ وقت العرض (موثوق): يمين للعربي، يسار للإنجليزي
+  const isRTL = I18nManager.isRTL;
+  const align = isRTL ? 'right' : 'left';
+  const writingDir = isRTL ? 'rtl' : 'ltr';
 
   useEffect(() => {
     Animated.loop(
@@ -108,7 +112,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Text style={styles.tagline}>مساعدك الذكي المتخصّص — ٢٥ مختصّاً في خدمتك</Text>
+        <Text style={[styles.tagline, { textAlign: align, writingDirection: writingDir }]}>
+          مساعدك الذكي المتخصّص — ٢٥ مختصّاً في خدمتك
+        </Text>
 
         <View style={styles.search}>
           <Ionicons name="search" size={19} color={colors.muted} />
@@ -116,7 +122,7 @@ export default function HomeScreen() {
             style={styles.searchInput}
             placeholder="ابحث عن خدمة أو سؤال..."
             placeholderTextColor={colors.muted}
-            textAlign={ALIGN}
+            textAlign={align}
           />
         </View>
       </LinearGradient>
@@ -140,8 +146,12 @@ export default function HomeScreen() {
                   color={colors.goldLight}
                 />
               </View>
-              <Text style={styles.cardTitle}>{axis.title}</Text>
-              <Text style={styles.cardCount}>{toArabic(axis.experts.length)} خبراء</Text>
+              <Text style={[styles.cardTitle, { textAlign: align, writingDirection: writingDir }]}>
+                {axis.title}
+              </Text>
+              <Text style={[styles.cardCount, { textAlign: align, writingDirection: writingDir }]}>
+                {toArabic(axis.experts.length)} خبراء
+              </Text>
             </Pressable>
           ))}
         </View>
@@ -220,7 +230,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Tajawal_500Medium',
     fontSize: 13.5,
     color: 'rgba(255,255,255,0.82)',
-    textAlign: ALIGN,
     marginTop: 16,
   },
   search: {
@@ -271,14 +280,12 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: colors.textDark,
     lineHeight: 21,
-    textAlign: ALIGN,
   },
   cardCount: {
     fontFamily: 'Tajawal_700Bold',
     fontSize: 12,
     color: colors.gold,
     marginTop: 7,
-    textAlign: ALIGN,
   },
   disclaimer: {
     fontFamily: 'Tajawal_400Regular',
