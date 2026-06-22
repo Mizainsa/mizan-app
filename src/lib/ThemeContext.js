@@ -4,7 +4,6 @@ import { THEMES, DEFAULT_THEME } from "./theme";
 
 const THEME_KEY = "mizan_theme_v1";
 
-// القيمة الافتراضية كاملة — حتى لو استُدعي useTheme خارج Provider لا ينهار
 const FALLBACK = {
   themeId: DEFAULT_THEME,
   theme: THEMES[DEFAULT_THEME],
@@ -36,15 +35,12 @@ export function ThemeProvider({ children }) {
     try { await AsyncStorage.setItem(THEME_KEY, id); } catch (e) {}
   }, []);
 
-  // حماية: الثيم النشط دائماً صالح
   const activeTheme = THEMES[themeId] || THEMES[DEFAULT_THEME];
-
   const value = { themeId, theme: activeTheme, setTheme, ready };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-// حماية مزدوجة: لو رجع السياق فارغاً لأي سبب، نرجع FALLBACK بدل undefined
 export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx || !ctx.theme) return FALLBACK;

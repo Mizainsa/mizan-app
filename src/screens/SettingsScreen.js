@@ -1,149 +1,69 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
+import React from "react";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { supabase } from "../services/supabaseClient";
-import { COLORS, RADIUS, THEMES } from "../lib/theme";
+import { THEMES, COLORS, RADIUS } from "../lib/theme";
 import { useTheme } from "../lib/ThemeContext";
 
 export default function SettingsScreen() {
-  const [email, setEmail] = useState("");
-  const { themeId, theme: TH, setTheme } = useTheme();
+  const { theme: TH, themeId, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await supabase.auth.getUser();
-        const user = res && res.data ? res.data.user : null;
-        if (mounted && user && user.email) setEmail(user.email);
-      } catch (e) {}
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الخروج.");
-      } else {
-        setEmail("");
-        Alert.alert("تم", "تم تسجيل خروجك بنجاح.");
-      }
-    } catch (e) {
-      Alert.alert("خطأ", "تعذّر تسجيل الخروج.");
-    }
-  };
-
-  const themeList = THEMES ? Object.keys(THEMES).map((k) => THEMES[k]) : [];
+  const themeList = Object.values(THEMES);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 130, paddingHorizontal: 20 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.headerTitle}>إعدادات الحساب</Text>
-
-      <View style={[styles.profileCard, { backgroundColor: TH.primary }]}>
-        <View style={styles.avatarBox}>
-          <FontAwesome5 name="user-circle" size={34} color={COLORS.white} />
-        </View>
-        <View style={styles.profileInfo}>
-          <Text style={styles.profileLabel}>الحساب الحالي</Text>
-          <Text style={styles.profileEmail} numberOfLines={1}>
-            {email ? email : "زائر (غير مسجّل الدخول)"}
-          </Text>
-        </View>
-      </View>
-
-      {/* مظهر التطبيق: مبدّل الثيمات الأربعة */}
-      <View style={styles.sectionLabelRow}>
-        <View style={[styles.miniDot, { backgroundColor: TH.accent }]} />
-        <Text style={styles.sectionLabel}>مظهر التطبيق</Text>
-      </View>
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 120, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+      <Text style={styles.pageTitle}>حسابي</Text>
+      <Text style={styles.sectionLabel}>المظهر</Text>
       <View style={styles.themeGrid}>
-        {themeList.map((t) => {
-          const selected = t.id === themeId;
-          return (
-            <TouchableOpacity
-              key={t.id}
-              style={[styles.themeCard, selected && { borderColor: t.accent, borderWidth: 2 }]}
-              activeOpacity={0.85}
-              onPress={() => setTheme(t.id)}
-            >
-              <View style={[styles.swatch, { backgroundColor: t.primary }]}>
-                <View style={[styles.swatchDot, { backgroundColor: t.accent }]} />
-              </View>
-              <View style={styles.themeInfo}>
-                <Text style={styles.themeName}>{t.name}</Text>
-                <Text style={styles.themeSub}>{t.label}</Text>
-              </View>
-              {selected ? <FontAwesome5 name="check-circle" size={16} color={t.accent} solid /> : null}
-            </TouchableOpacity>
-          );
-        })}
+        {themeList.map((t) => (
+          <TouchableOpacity key={t.id} style={[styles.themeChip, { borderColor: themeId === t.id ? t.primary : COLORS.border, borderWidth: themeId === t.id ? 2.5 : 1 }]} activeOpacity={0.85} onPress={() => setTheme(t.id)}>
+            <View style={[styles.themeSwatch, { backgroundColor: t.primary }]}>
+              <View style={[styles.themeAccent, { backgroundColor: t.accent }]} />
+            </View>
+            <Text style={styles.themeName}>{t.name}</Text>
+            {themeId === t.id ? <FontAwesome5 name="check-circle" size={14} color={t.primary} solid /> : null}
+          </TouchableOpacity>
+        ))}
       </View>
-
-      <View style={styles.sectionLabelRow}>
-        <View style={[styles.miniDot, { backgroundColor: TH.primary }]} />
-        <Text style={styles.sectionLabel}>الحساب</Text>
+      <Text style={styles.sectionLabel}>الحساب</Text>
+      <View style={styles.menuCard}>
+        {[
+          { icon: "user-edit", label: "تعديل البيانات" },
+          { icon: "crown", label: "إدارة الاشتراك" },
+          { icon: "bell", label: "الإشعارات" },
+          { icon: "shield-alt", label: "الخصوصية والأمان" },
+          { icon: "info-circle", label: "عن ميزان" },
+        ].map((item, i) => (
+          <TouchableOpacity key={i} style={[styles.menuRow, i > 0 && styles.menuBorder]} activeOpacity={0.7}>
+            <FontAwesome5 name="chevron-left" size={13} color={COLORS.textMuted} />
+            <Text style={styles.menuLabel}>{item.label}</Text>
+            <View style={[styles.menuIcon, { backgroundColor: TH.light }]}>
+              <FontAwesome5 name={item.icon} size={15} color={TH.primary} />
+            </View>
+          </TouchableOpacity>
+        ))}
       </View>
-      <View style={styles.menuContainer}>
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>تعديل البيانات الشخصية</Text>
-          <FontAwesome5 name="user" size={17} color={TH.primary} />
-        </TouchableOpacity>
-        <View style={styles.divider} />
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>إدارة الاشتراك المالي</Text>
-          <FontAwesome5 name="credit-card" size={17} color={TH.primary} />
-        </TouchableOpacity>
-        <View style={styles.divider} />
-        <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
-          <Text style={[styles.menuText, { color: COLORS.danger }]}>تسجيل الخروج</Text>
-          <FontAwesome5 name="sign-out-alt" size={17} color={COLORS.danger} />
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85}>
+        <Text style={styles.logoutText}>تسجيل الخروج</Text>
+        <FontAwesome5 name="sign-out-alt" size={15} color={COLORS.danger} style={{ marginLeft: 8 }} />
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  headerTitle: { fontFamily: "Cairo_800ExtraBold", fontSize: 22, color: COLORS.onyx, textAlign: "right", marginBottom: 22 },
-  profileCard: {
-    flexDirection: "row-reverse", alignItems: "center",
-    borderRadius: RADIUS.lg, padding: 18, marginBottom: 20,
-    shadowColor: "#0F5132", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16, elevation: 6,
-  },
-  avatarBox: { width: 60, height: 60, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
-  profileInfo: { flex: 1, marginRight: 16, alignItems: "flex-end" },
-  profileLabel: { fontFamily: "Tajawal_400Regular", fontSize: 12, color: "rgba(255,255,255,0.7)" },
-  profileEmail: { fontFamily: "Cairo_800ExtraBold", fontSize: 15, color: COLORS.white, marginTop: 4, textAlign: "right", width: "100%" },
-  sectionLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, marginTop: 4 },
-  miniDot: { width: 7, height: 7, borderRadius: 3.5, marginLeft: 9 },
-  sectionLabel: { fontFamily: "Cairo_800ExtraBold", fontSize: 15, color: COLORS.onyx },
-  themeGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 20 },
-  themeCard: {
-    width: "48.5%", flexDirection: "row-reverse", alignItems: "center",
-    backgroundColor: COLORS.surface, borderRadius: 16, padding: 13, marginBottom: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    shadowColor: "#0F5132", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
-  },
-  swatch: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", marginLeft: 11 },
-  swatchDot: { width: 12, height: 12, borderRadius: 6 },
-  themeInfo: { flex: 1, alignItems: "flex-end" },
-  themeName: { fontFamily: "Cairo_800ExtraBold", fontSize: 13, color: COLORS.onyx },
-  themeSub: { fontFamily: "Tajawal_400Regular", fontSize: 9.5, color: COLORS.textMuted, marginTop: 1 },
-  menuContainer: {
-    backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: 8,
-    borderWidth: 1, borderColor: COLORS.borderSoft,
-    shadowColor: "#0F5132", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 3,
-  },
-  menuItem: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 17 },
-  menuText: { fontFamily: "Tajawal_700Bold", fontSize: 15, color: COLORS.textBody, marginLeft: 15, textAlign: "right" },
-  divider: { height: 1, backgroundColor: COLORS.borderSoft, marginHorizontal: 10 },
+  pageTitle: { fontFamily: "Cairo_900Black", fontSize: 26, color: COLORS.onyx, textAlign: "right", marginBottom: 24 },
+  sectionLabel: { fontFamily: "Cairo_800ExtraBold", fontSize: 15, color: COLORS.textDim, textAlign: "right", marginBottom: 14, marginTop: 8 },
+  themeGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 16 },
+  themeChip: { width: "48.5%", flexDirection: "row-reverse", alignItems: "center", backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: 12, marginBottom: 12 },
+  themeSwatch: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", marginLeft: 10 },
+  themeAccent: { width: 14, height: 14, borderRadius: 5 },
+  themeName: { fontFamily: "Cairo_700Bold", fontSize: 13.5, color: COLORS.onyx, flex: 1, textAlign: "right" },
+  menuCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, marginBottom: 20, overflow: "hidden" },
+  menuRow: { flexDirection: "row-reverse", alignItems: "center", paddingVertical: 15, paddingHorizontal: 16 },
+  menuBorder: { borderTopWidth: 1, borderTopColor: COLORS.border },
+  menuLabel: { fontFamily: "Tajawal_700Bold", fontSize: 14, color: COLORS.textBody, flex: 1, textAlign: "right", marginRight: 12 },
+  menuIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  logoutBtn: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", backgroundColor: "#FEF2F2", borderRadius: RADIUS.md, paddingVertical: 15, borderWidth: 1, borderColor: "#FECACA" },
+  logoutText: { fontFamily: "Cairo_800ExtraBold", fontSize: 14.5, color: COLORS.danger },
 });

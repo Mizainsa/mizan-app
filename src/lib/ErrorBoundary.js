@@ -1,26 +1,18 @@
 import React from "react";
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 
-// درع الأخطاء: يلتقط أي انهيار في أي شاشة، ويعرض رسالة + سبب الخطأ
-// على الشاشة نفسها، بدل إغلاق التطبيق. هكذا يُرى السبب بلا طرفية.
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null, info: null };
   }
-
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
-
   componentDidCatch(error, info) {
     this.setState({ error, info });
   }
-
-  reset = () => {
-    this.setState({ hasError: false, error: null, info: null });
-  };
-
+  reset = () => { this.setState({ hasError: false, error: null, info: null }); };
   render() {
     if (this.state.hasError) {
       const msg = this.state.error ? String(this.state.error.message || this.state.error) : "خطأ غير معروف";
@@ -29,15 +21,9 @@ export default class ErrorBoundary extends React.Component {
         <View style={styles.container}>
           <ScrollView contentContainerStyle={styles.content}>
             <Text style={styles.title}>حدث خطأ في العرض</Text>
-            <Text style={styles.subtitle}>التطبيق التقط الخطأ ومنع الإغلاق. التفاصيل أدناه:</Text>
-            <View style={styles.box}>
-              <Text style={styles.errText}>{msg}</Text>
-            </View>
-            {stack ? (
-              <View style={styles.box}>
-                <Text style={styles.stackText}>{stack.slice(0, 1200)}</Text>
-              </View>
-            ) : null}
+            <Text style={styles.subtitle}>التطبيق التقط الخطأ ومنع الإغلاق. التفاصيل:</Text>
+            <View style={styles.box}><Text style={styles.errText}>{msg}</Text></View>
+            {stack ? <View style={styles.box}><Text style={styles.stackText}>{stack.slice(0, 1200)}</Text></View> : null}
             <TouchableOpacity style={styles.button} onPress={this.reset} activeOpacity={0.85}>
               <Text style={styles.buttonText}>إعادة المحاولة</Text>
             </TouchableOpacity>
@@ -48,7 +34,6 @@ export default class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FBFCFA" },
   content: { padding: 24, paddingTop: 80 },

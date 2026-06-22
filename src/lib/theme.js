@@ -1,168 +1,111 @@
-// ===== الهوية البصرية لميزان: الزمردي الذهبي (Emerald Gold) =====
-// MIZAN v12 | React Native (Android + iOS)
-// أسماء المتغيّرات القديمة (royal/gold/navy) محفوظة بقيم زمردية لمنع كسر الشاشات.
-
-// ============ نظام الثيمات الأربعة ============
-// كل ثيم يحوي كل ما قد تطلبه أي شاشة: تدرّج (g1-g4) + ألوان + خلفيات (bg/surface/border).
 export const THEMES = {
   emerald: {
-    id: "emerald", name: "زمردي", label: "Emerald / Gold",
+    id: "emerald", name: "الزمردي",
     g1: "#0F5132", g2: "#0A3D26", g3: "#125E3A", g4: "#08311E",
     primary: "#0F5132", primaryDeep: "#0A3D26",
-    accent: "#C9A227", accentLite: "#E3C766",
-    light: "rgba(15,81,50,0.10)",
-    bg: "#FBFCFA", bgPure: "#FFFFFF", surface: "#FFFFFF",
-    border: "#E3EFE8", royalSoft: "#F0F7F3",
-    ink: "#0A2A1B", inkDim: "#43655A", muted: "#8FB1A2",
-    onGrad: "#FFFFFF", onGradDim: "rgba(255,255,255,0.85)",
+    accent: "#C9A227", accentLite: "#E3C766", light: "#E8F2EC",
+    bg: "#FBFCFA", bgPure: "#FFFFFF", surface: "#FFFFFF", border: "#E3EFE8",
+    onyx: "#0A2A1B", textBody: "#1F3D30", textDim: "#43655A", textMuted: "#8AA399",
   },
   midnight: {
-    id: "midnight", name: "ليل", label: "Midnight / Silver",
-    g1: "#1E293B", g2: "#0F172A", g3: "#283548", g4: "#0B1120",
-    primary: "#334155", primaryDeep: "#0F172A",
-    accent: "#94A3B8", accentLite: "#E2E8F0",
-    light: "rgba(51,65,85,0.10)",
-    bg: "#F7F8FA", bgPure: "#FFFFFF", surface: "#FFFFFF",
-    border: "#E7EAF0", royalSoft: "#F1F5F9",
-    ink: "#0F172A", inkDim: "#475569", muted: "#94A3B8",
-    onGrad: "#FFFFFF", onGradDim: "rgba(255,255,255,0.85)",
+    id: "midnight", name: "الليل",
+    g1: "#0F1E2E", g2: "#0A1622", g3: "#13283C", g4: "#060F18",
+    primary: "#13283C", primaryDeep: "#0A1622",
+    accent: "#C9A227", accentLite: "#E3C766", light: "#1A2F45",
+    bg: "#0A1119", bgPure: "#0F1E2E", surface: "#13283C", border: "#1F3A52",
+    onyx: "#EAF2FA", textBody: "#C5D5E5", textDim: "#8AA0B5", textMuted: "#5A7088",
   },
   ocean: {
-    id: "ocean", name: "محيط", label: "Ocean / Teal",
-    g1: "#0D9488", g2: "#0F766E", g3: "#14B8A6", g4: "#0A5C55",
-    primary: "#0D9488", primaryDeep: "#0F766E",
-    accent: "#0E7490", accentLite: "#5EEAD4",
-    light: "rgba(13,148,136,0.10)",
-    bg: "#F7FCFB", bgPure: "#FFFFFF", surface: "#FFFFFF",
-    border: "#DDF0ED", royalSoft: "#ECFBF8",
-    ink: "#0A2A28", inkDim: "#42655F", muted: "#8DB3AE",
-    onGrad: "#FFFFFF", onGradDim: "rgba(255,255,255,0.85)",
+    id: "ocean", name: "المحيط",
+    g1: "#0E4A5E", g2: "#093644", g3: "#125E76", g4: "#072A35",
+    primary: "#0E4A5E", primaryDeep: "#093644",
+    accent: "#D4A636", accentLite: "#E8C76A", light: "#E0EFF3",
+    bg: "#F8FCFD", bgPure: "#FFFFFF", surface: "#FFFFFF", border: "#DCEBEF",
+    onyx: "#08313D", textBody: "#1C424F", textDim: "#456069", textMuted: "#85A3AC",
   },
   sand: {
-    id: "sand", name: "رمل", label: "Sand / Brown",
-    g1: "#A8763E", g2: "#7C5226", g3: "#B98A4D", g4: "#5E3D1A",
-    primary: "#7C5226", primaryDeep: "#5E3D1A",
-    accent: "#9C6B2E", accentLite: "#E8C99A",
-    light: "rgba(124,82,38,0.12)",
-    bg: "#FBF8F2", bgPure: "#FFFFFF", surface: "#FFFFFF",
-    border: "#EDE3D2", royalSoft: "#FAF3E8",
-    ink: "#3A2A16", inkDim: "#6B5A42", muted: "#A89B82",
-    onGrad: "#FFFFFF", onGradDim: "rgba(255,255,255,0.85)",
+    id: "sand", name: "الرمل",
+    g1: "#8A6D3B", g2: "#6E5530", g3: "#A0814A", g4: "#574426",
+    primary: "#8A6D3B", primaryDeep: "#6E5530",
+    accent: "#0F5132", accentLite: "#177A4B", light: "#F3ECDD",
+    bg: "#FCFAF5", bgPure: "#FFFFFF", surface: "#FFFFFF", border: "#EBE3D2",
+    onyx: "#3D2F16", textBody: "#4F3E22", textDim: "#6E5C3E", textMuted: "#A3927A",
   },
 };
 
 export const DEFAULT_THEME = "emerald";
 
-// ============ COLORS — لوحة ثابتة (متوافقة مع الشاشات القديمة) ============
 export const COLORS = {
-  bg: "#FBFCFA", bgPure: "#FFFFFF", surface: "#FFFFFF",
-  onyx: "#0A2A1B", textDark: "#0A2A1B", textBody: "#1C3A2E", textDim: "#43655A", textMuted: "#8FB1A2",
-  royal: "#0F5132", royalLight: "#125E3A", royalDeep: "#0A3D26", royalSoft: "#F0F7F3",
-  platinum: "#C9A227", platinumLite: "#E3C766",
-  border: "#E3EFE8", borderSoft: "#EEF5F1",
-  glass: "rgba(255,255,255,0.92)", glassBorder: "rgba(201,162,39,0.30)",
-  white: "#FFFFFF", danger: "#991B1B", green: "#0F5132",
-  // أسماء التوافق القديمة (يمنع حذفها) — قيم زمردية
-  navy1: "#0F5132", navy2: "#0A3D26", navyDark: "#08311E", navyMid: "#0A2A1B",
-  gold: "#C9A227", goldLight: "#E3C766", text: "#0A2A1B", cardBg: "#FFFFFF",
+  royal: "#0F5132", royalDeep: "#0A3D26", gold: "#C9A227", goldLite: "#E3C766",
+  bg: "#FBFCFA", bgPure: "#FFFFFF", surface: "#FFFFFF", border: "#E3EFE8",
+  onyx: "#0A2A1B", textBody: "#1F3D30", textDim: "#43655A", textMuted: "#8AA399",
+  white: "#FFFFFF", danger: "#991B1B",
 };
 
-export const SHADOW = {
-  card: { shadowColor: "#0F5132", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 18, elevation: 4 },
-  soft: { shadowColor: "#0F5132", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
-  button: { shadowColor: "#0F5132", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 5 },
-  grad: { shadowColor: "#0F5132", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 24, elevation: 10 },
-};
+export const RADIUS = { sm: 10, md: 14, lg: 20, xl: 28 };
 
-export const RADIUS = { sm: 14, md: 20, lg: 26, xl: 32 };
-
-export const TAGLINE = "إرشاد توعوي بالأنظمة والإجراءات السعودية";
-export const APP_NAME = "MIZAN";
-export const APP_NAME_AR = "مِيزان";
-export const APP_SUB = "مساعدك الذكي للإرشاد التوعوي بالأنظمة والإجراءات السعودية";
-
-// ============ المحاور الثمانية (تضم 25 خبيراً) ============
 export const HUBS = [
-  { id: "security", title: "الأمن والبلاغات", sub: "الشرطة والبلاغات", icon: "shield-alt",
+  { id: "security", title: "الأمن والبلاغات", icon: "shield-alt",
     experts: [
-      { id: "police", title: "مراكز الشرطة", sub: "بلاغات ومحاضر" },
-      { id: "kollona", title: "كلنا أمن", sub: "البلاغات الأمنية" },
-      { id: "cyber", title: "الجرائم المعلوماتية", sub: "ابتزاز وتشهير إلكتروني" },
+      { id: "police", name: "الشرطة والبلاغات", icon: "shield-alt" },
+      { id: "kollona", name: "كلنا أمن", icon: "user-shield" },
+      { id: "cyber", name: "الأمن السيبراني", icon: "laptop-code" },
     ] },
-  { id: "prosecution", title: "النيابة والضبط الجنائي", sub: "تحقيق وعقوبات", icon: "gavel",
+  { id: "prosecution", title: "النيابة والضبط الجنائي", icon: "gavel",
     experts: [
-      { id: "niyaba", title: "النيابة العامة", sub: "تحقيق واستدعاء وإحالة" },
-      { id: "criminal", title: "الخبير الجنائي", sub: "جرائم وعقوبات وحقوق المتهم" },
+      { id: "niyaba", name: "النيابة العامة", icon: "balance-scale-left" },
+      { id: "criminal", name: "الضبط الجنائي", icon: "fingerprint" },
     ] },
-  { id: "judiciary", title: "القضاء وناجز", sub: "محاكم ووكالات", icon: "balance-scale-right",
+  { id: "judiciary", title: "القضاء وناجز", icon: "gavel",
     experts: [
-      { id: "najiz", title: "ناجز والمحاكم", sub: "دعاوى ووكالات وتنفيذ" },
-      { id: "taradhi", title: "منصة تراضي", sub: "تسويات وصلح ودّي" },
+      { id: "najiz", name: "ناجز والمحاكم", icon: "landmark" },
+      { id: "taradhi", name: "التراضي والصلح", icon: "handshake" },
     ] },
-  { id: "family", title: "الأحوال والأسرة", sub: "طلاق وحضانة ونفقة", icon: "users",
+  { id: "family", title: "الأحوال والأسرة", icon: "users",
     experts: [
-      { id: "family_law", title: "الأحوال الشخصية", sub: "زواج، طلاق، خلع، عِدّة" },
-      { id: "custody", title: "الحضانة والنفقة", sub: "حضانة، رؤية، نفقة" },
-      { id: "inherit", title: "الميراث والوصية", sub: "أنصبة، وصية، ولاية" },
+      { id: "family_law", name: "الأحوال الشخصية", icon: "users" },
+      { id: "custody", name: "الحضانة والنفقة", icon: "child" },
+      { id: "inherit", name: "المواريث", icon: "scroll" },
     ] },
-  { id: "finance", title: "المال والضمان", sub: "بنوك وتأمين وضمان", icon: "landmark",
+  { id: "finance", title: "المال والضمان", icon: "coins",
     experts: [
-      { id: "sama", title: "ساما تهتم", sub: "بنوك وتمويل واحتيال مالي" },
-      { id: "citizen", title: "حساب المواطن والضمان", sub: "أهلية واعتراضات" },
-      { id: "gosi", title: "التأمينات الاجتماعية", sub: "تقاعد وإصابات عمل" },
-      { id: "health_ins", title: "الضمان الصحي", sub: "تأمين طبي ومطالبات" },
-      { id: "commercial_ins", title: "خبير التأمين التجاري", sub: "السيارات، الممتلكات، المسؤوليات المهنية للشركات" },
+      { id: "sama", name: "البنوك والساما", icon: "university" },
+      { id: "citizen", name: "حساب المواطن", icon: "hand-holding-usd" },
+      { id: "gosi", name: "التأمينات الاجتماعية", icon: "shield-alt" },
+      { id: "health_ins", name: "التأمين الصحي", icon: "heartbeat" },
+      { id: "commercial_ins", name: "التأمين التجاري", icon: "file-invoice-dollar" },
     ] },
-  { id: "labor", title: "العمل والأفراد", sub: "قوى وأبشر ومساند", icon: "briefcase",
+  { id: "labor", title: "العمل والأفراد", icon: "briefcase",
     experts: [
-      { id: "qiwa", title: "قوى ونظام العمل", sub: "عقود وعلاقات عمالية" },
-      { id: "absher", title: "أبشر والأحوال المدنية", sub: "أفراد وجوازات وخدمات" },
-      { id: "musaned", title: "منصة مساند", sub: "العمالة المنزلية" },
+      { id: "qiwa", name: "قوى والعمل", icon: "briefcase" },
+      { id: "absher", name: "أبشر والجوازات", icon: "id-card" },
+      { id: "musaned", name: "مساند والعمالة", icon: "hands-helping" },
     ] },
-  { id: "realestate", title: "العقار والسكن", sub: "إيجار وتملّك عقاري", icon: "key",
+  { id: "realestate", title: "العقار والسكن", icon: "home",
     experts: [
-      { id: "ejar", title: "منصة إيجار", sub: "عقود سكنية وإخلاء" },
-      { id: "ehkam", title: "منصة إحكام", sub: "تملّك العقارات" },
-      { id: "mullak", title: "منصة مُلّاك", sub: "إدارة اتحاد المُلّاك" },
-      { id: "wafi", title: "العقود الهندسية ووافي", sub: "استصناع ومقاولات" },
+      { id: "ejar", name: "إيجار", icon: "key" },
+      { id: "ehkam", name: "إحكام العقاري", icon: "gavel" },
+      { id: "mullak", name: "اتحاد الملاك", icon: "building" },
+      { id: "wafi", name: "وافي للبيع على الخارطة", icon: "map-marked-alt" },
     ] },
-  { id: "commerce", title: "التجارة والزكاة", sub: "تجارة وزكاة وضريبة", icon: "store",
+  { id: "commerce", title: "التجارة والزكاة", icon: "store",
     experts: [
-      { id: "balady", title: "منصة بلدي", sub: "تراخيص ونشاط تجاري" },
-      { id: "commerce_p", title: "التجارة ومنصة الأعمال", sub: "شركات وحماية مستهلك" },
-      { id: "zatca", title: "الزكاة والضريبة والجمارك", sub: "فوترة وإقرارات (ZATCA)" },
+      { id: "balady", name: "بلدي والرخص", icon: "store" },
+      { id: "commerce_p", name: "التجارة والسجل", icon: "file-contract" },
+      { id: "zatca", name: "الزكاة والضريبة", icon: "receipt" },
     ] },
 ];
 
-// خريطة الخبير → المحور (للدساتير لاحقاً)
-export const EXPERTS_INDEX = (() => {
-  const map = {};
-  HUBS.forEach((hub) => {
-    (hub.experts || []).forEach((ex) => { map[ex.id] = { ...ex, hubId: hub.id, hubTitle: hub.title }; });
-  });
-  return map;
-})();
+export const EXPERTS_COUNT = HUBS.reduce((n, h) => n + h.experts.length, 0);
 
-export const EXPERTS_COUNT = HUBS.reduce((n, h) => n + (h.experts ? h.experts.length : 0), 0);
-
-// ============ المساعد التقديري (الأدوات) ============
-export const TOOLS = [
-  { id: "calculators", title: "الحاسبات التقديرية", sub: "مكافأة، نفقة، ميراث، رسوم", icon: "calculator" },
-  { id: "deadlines", title: "تنبيهات المهل", sub: "تذكير التجديد والجلسات", icon: "bell" },
-];
-
-// ============ التوافق العكسي: SECTIONS ============
-export const SECTIONS = HUBS.map((h) => ({ id: h.id, title: h.title, sub: h.sub, icon: h.icon }));
-
-// ============ المنصات الرسمية ============
 export const PLATFORMS = [
   { id: "najiz", name: "ناجز", url: "https://najiz.sa" },
   { id: "qiwa", name: "قوى", url: "https://qiwa.sa" },
+  { id: "absher", name: "أبشر", url: "https://absher.sa" },
   { id: "ejar", name: "إيجار", url: "https://www.ejar.sa" },
-  { id: "absher", name: "أبشر", url: "https://www.absher.sa" },
   { id: "gosi", name: "التأمينات", url: "https://www.gosi.gov.sa" },
   { id: "etimad", name: "اعتماد", url: "https://etimad.sa" },
   { id: "balady", name: "بلدي", url: "https://balady.gov.sa" },
+  { id: "zatca", name: "هيئة الزكاة", url: "https://zatca.gov.sa" },
   { id: "moj", name: "وزارة العدل", url: "https://www.moj.gov.sa" },
-  { id: "zatca", name: "هيئة الزكاة والضريبة والجمارك", url: "https://zatca.gov.sa" },
 ];

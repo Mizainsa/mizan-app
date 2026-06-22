@@ -1,62 +1,36 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from "react-native";
+import React from "react";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { buySubscription } from "../lib/payments";
-import { COLORS, RADIUS, THEMES, DEFAULT_THEME } from "../lib/theme";
+import { COLORS, RADIUS } from "../lib/theme";
 import { useTheme } from "../lib/ThemeContext";
 
 const PLANS = [
-  {
-    id: "basic", sku: "mizan_basic_monthly", name: "الباقة الأساسية", price: "29", period: "شهرياً",
-    features: ["وصول لكل المحاور", "استشارات إرشادية غير محدودة", "البحث الموحّد", "تنبيهات المهل"],
-  },
-  {
-    id: "pro", sku: "mizan_pro_monthly", name: "الباقة الاحترافية", price: "59", period: "شهرياً", featured: true,
-    features: ["كل مزايا الأساسية", "أدوات الإنتاج القانوني", "صياغة الدعاوى والعقود", "الحاسبات التقديرية", "أولوية في الدعم"],
-  },
+  { id: "basic", name: "الباقة الأساسية", price: "29", period: "شهرياً",
+    features: ["وصول لكل المحاور", "استشارات غير محدودة", "البحث الموحّد", "تنبيهات المواعيد"] },
+  { id: "pro", name: "الباقة الاحترافية", price: "59", period: "شهرياً", featured: true,
+    features: ["كل مزايا الأساسية", "أولوية في الردود", "الحاسبات التقديرية", "دعم مخصّص"] },
 ];
 
 export default function SubscriptionScreen() {
-  const themeCtx = useTheme();
-  const TH = (themeCtx && themeCtx.theme) ? themeCtx.theme : THEMES[DEFAULT_THEME];
+  const { theme: TH } = useTheme();
   const insets = useSafeAreaInsets();
-  const [buying, setBuying] = useState("");
-
-  const handleBuy = async (sku) => {
-    setBuying(sku);
-    try { await buySubscription(sku); } catch (e) {}
-    setBuying("");
-  };
-
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: COLORS.bg }]}
-      contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 130, paddingHorizontal: 20 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 120, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
       <View style={styles.headerBox}>
         <View style={[styles.crownCircle, { backgroundColor: TH.primary }]}>
           <FontAwesome5 name="crown" size={28} color={TH.accentLite} />
         </View>
         <Text style={styles.headerTitle}>اختر باقتك</Text>
-        <Text style={styles.headerSub}>إرشاد توعوي إجرائي بمبالغ بسيطة</Text>
+        <Text style={styles.headerSub}>مزايا أوسع بمبالغ بسيطة</Text>
       </View>
-
       {PLANS.map((plan) => (
-        <View
-          key={plan.id}
-          style={[styles.planCard, plan.featured && { borderColor: TH.accent, borderWidth: 2 }]}
-        >
-          {plan.featured ? (
-            <View style={[styles.badge, { backgroundColor: TH.accent }]}>
-              <Text style={styles.badgeText}>الأكثر اختياراً</Text>
-            </View>
-          ) : null}
+        <View key={plan.id} style={[styles.planCard, plan.featured && { borderColor: TH.accent, borderWidth: 2 }]}>
+          {plan.featured ? <View style={[styles.badge, { backgroundColor: TH.accent }]}><Text style={styles.badgeText}>الأكثر اختياراً</Text></View> : null}
           <Text style={styles.planName}>{plan.name}</Text>
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: TH.primary }]}>{plan.price}</Text>
-            <Text style={styles.currency}>ريal / {plan.period}</Text>
+            <Text style={styles.currency}>ريال / {plan.period}</Text>
           </View>
           <View style={styles.featuresList}>
             {plan.features.map((f, i) => (
@@ -66,41 +40,22 @@ export default function SubscriptionScreen() {
               </View>
             ))}
           </View>
-          <TouchableOpacity
-            style={[styles.buyButton, { backgroundColor: plan.featured ? TH.primary : COLORS.surface, borderColor: TH.primary, borderWidth: plan.featured ? 0 : 1.5 }]}
-            activeOpacity={0.85}
-            onPress={() => handleBuy(plan.sku)}
-          >
-            {buying === plan.sku ? (
-              <ActivityIndicator size="small" color={plan.featured ? "#fff" : TH.primary} />
-            ) : (
-              <Text style={[styles.buyText, { color: plan.featured ? "#fff" : TH.primary }]}>اشترك الآن</Text>
-            )}
+          <TouchableOpacity style={[styles.buyButton, { backgroundColor: plan.featured ? TH.primary : COLORS.surface, borderColor: TH.primary, borderWidth: plan.featured ? 0 : 1.5 }]} activeOpacity={0.85}>
+            <Text style={[styles.buyText, { color: plan.featured ? "#fff" : TH.primary }]}>اشترك الآن</Text>
           </TouchableOpacity>
         </View>
       ))}
-
-      <Text style={styles.note}>
-        يمكنك إلغاء الاشتراك في أي وقت من إعدادات المتجر. ميزان إرشاد توعوي إجرائي، وليس بديلاً عن محامٍ مرخص.
-      </Text>
+      <Text style={styles.note}>ميزان مساعد استرشادي للتوعية، والمعلومات قد تتغيّر، ويُنصح بالتحقّق من مختصّ قبل الإجراء.</Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
   headerBox: { alignItems: "center", marginBottom: 26 },
-  crownCircle: {
-    width: 72, height: 72, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 14,
-    shadowColor: "#0F5132", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 6,
-  },
+  crownCircle: { width: 72, height: 72, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 14 },
   headerTitle: { fontFamily: "Cairo_800ExtraBold", fontSize: 23, color: COLORS.onyx },
   headerSub: { fontFamily: "Tajawal_500Medium", fontSize: 13, color: COLORS.textDim, marginTop: 6, textAlign: "center" },
-  planCard: {
-    backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: 22, marginBottom: 18,
-    borderWidth: 1, borderColor: COLORS.border,
-    shadowColor: "#0F5132", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4,
-  },
+  planCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: 22, marginBottom: 18, borderWidth: 1, borderColor: COLORS.border },
   badge: { alignSelf: "flex-end", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, marginBottom: 10 },
   badgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
   planName: { fontFamily: "Cairo_800ExtraBold", fontSize: 18, color: COLORS.onyx, textAlign: "right" },
