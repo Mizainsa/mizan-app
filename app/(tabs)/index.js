@@ -38,10 +38,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const shimmer = useRef(new Animated.Value(0)).current;
 
-  // الاتجاه يُقرأ وقت العرض (موثوق): يمين للعربي، يسار للإنجليزي
-  const isRTL = I18nManager.isRTL;
-  const align = isRTL ? 'right' : 'left';
-  const writingDir = isRTL ? 'rtl' : 'ltr';
+  // اتجاه الكتابة يُقرأ وقت العرض: rtl للعربي، ltr للإنجليزي. المحاذاة تلقائية حسب لغة المحتوى.
+  const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
 
   useEffect(() => {
     Animated.loop(
@@ -112,7 +110,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Text style={[styles.tagline, { textAlign: align, writingDirection: writingDir }]}>
+        <Text style={[styles.tagline, { writingDirection: writingDir }]}>
           مساعدك الذكي المتخصّص — ٢٥ مختصّاً في خدمتك
         </Text>
 
@@ -122,7 +120,6 @@ export default function HomeScreen() {
             style={styles.searchInput}
             placeholder="ابحث عن خدمة أو سؤال..."
             placeholderTextColor={colors.muted}
-            textAlign={align}
           />
         </View>
       </LinearGradient>
@@ -146,10 +143,10 @@ export default function HomeScreen() {
                   color={colors.goldLight}
                 />
               </View>
-              <Text style={[styles.cardTitle, { textAlign: align, writingDirection: writingDir }]}>
+              <Text style={[styles.cardTitle, { writingDirection: writingDir }]}>
                 {axis.title}
               </Text>
-              <Text style={[styles.cardCount, { textAlign: align, writingDirection: writingDir }]}>
+              <Text style={[styles.cardCount, { writingDirection: writingDir }]}>
                 {toArabic(axis.experts.length)} خبراء
               </Text>
             </Pressable>
