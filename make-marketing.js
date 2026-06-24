@@ -38,35 +38,25 @@ const fg = `<svg width="1024" height="500" viewBox="0 0 1024 500" xmlns="http://
 <rect x="0" y="0" width="1024" height="500" fill="url(#bgg)"/>
 <polygon points="1024,420 1024,500 880,500" fill="#C9A227" opacity="0.16"/>
 ${icon(600, 80, 340)}
-<text x="300" y="250" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="150">ميزان</text>
-<text x="300" y="325" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="44">مساعدك الذكي المتخصّص</text>
+<text x="300" y="250" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="150" word-spacing="10">ميزان</text>
+<text x="300" y="325" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="44" word-spacing="8">مساعدك الذكي المتخصّص</text>
 <rect x="200" y="350" width="200" height="6" rx="3" fill="#C9A227"/>
-</svg>`;
-
-const sq = `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">${defs}
-<rect x="0" y="0" width="1080" height="1080" fill="url(#bgg)"/>
-<polygon points="1080,940 1080,1080 920,1080" fill="#C9A227" opacity="0.16"/>
-${icon(300, 200, 480)}
-<text x="540" y="850" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="180">ميزان</text>
-<text x="540" y="935" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="52">مساعدك الذكي المتخصّص</text>
-<rect x="430" y="965" width="220" height="7" rx="3.5" fill="#C9A227"/>
 </svg>`;
 
 const hz = `<svg width="1200" height="628" viewBox="0 0 1200 628" xmlns="http://www.w3.org/2000/svg">${defs}
 <rect x="0" y="0" width="1200" height="628" fill="url(#bgg)"/>
 <polygon points="1200,530 1200,628 1050,628" fill="#C9A227" opacity="0.16"/>
 ${icon(720, 114, 400)}
-<text x="380" y="310" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="165">ميزان</text>
-<text x="380" y="390" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="48">مساعدك الذكي المتخصّص</text>
+<text x="380" y="310" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="165" word-spacing="10">ميزان</text>
+<text x="380" y="390" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="48" word-spacing="8">مساعدك الذكي المتخصّص</text>
 <rect x="270" y="418" width="220" height="7" rx="3.5" fill="#C9A227"/>
 </svg>`;
 
 (async () => {
   if (!fs.existsSync('assets')) fs.mkdirSync('assets');
   await sharp(Buffer.from(fg)).png().toFile('assets/feature-1024x500.png');
-  await sharp(Buffer.from(sq)).png().toFile('assets/banner-1080x1080.png');
   await sharp(Buffer.from(hz)).png().toFile('assets/banner-1200x628.png');
-  console.log('تم: feature-1024x500.png و banner-1080x1080.png و banner-1200x628.png في مجلد assets');
+  console.log('تم: feature-1024x500.png و banner-1200x628.png في مجلد assets');
 })().catch((e) => {
   console.error('خطأ:', e.message);
   process.exit(1);
