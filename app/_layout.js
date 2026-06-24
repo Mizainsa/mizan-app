@@ -26,6 +26,7 @@ import {
   Tajawal_700Bold,
 } from '@expo-google-fonts/tajawal';
 import { colors } from '../theme/colors';
+import { ThemeProvider } from '../theme/ThemeContext';
 
 // إجبار الاتجاه من اليمين لليسار
 I18nManager.allowRTL(true);
@@ -64,7 +65,6 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   useEffect(() => {
-    // عند فتح التطبيق: إن كان القفل مفعّلاً، اقفل واطلب البصمة
     AsyncStorage.getItem(BIO_KEY).then((v) => {
       if (v === 'true') {
         setLocked(true);
@@ -72,7 +72,6 @@ export default function RootLayout() {
       }
     });
 
-    // عند العودة من الخلفية: أعد القفل إن كان مفعّلاً
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'background') {
         AsyncStorage.getItem(BIO_KEY).then((v) => {
@@ -90,27 +89,29 @@ export default function RootLayout() {
   }
 
   return (
-    <KeyboardProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-      {locked ? (
-        <LinearGradient
-          colors={[colors.emerald, colors.emeraldDeep]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.lock}
-        >
-          <View style={styles.lockEmblem}>
-            <Ionicons name="lock-closed" size={42} color={colors.goldLight} />
-          </View>
-          <Text style={styles.lockTitle}>ميزان مقفل</Text>
-          <Text style={styles.lockNote}>افتح التطبيق ببصمتك</Text>
-          <Pressable style={styles.lockBtn} onPress={authenticate}>
-            <Ionicons name="finger-print" size={22} color={colors.emerald} />
-            <Text style={styles.lockBtnText}>فتح بالبصمة</Text>
-          </Pressable>
-        </LinearGradient>
-      ) : null}
-    </KeyboardProvider>
+    <ThemeProvider>
+      <KeyboardProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+        {locked ? (
+          <LinearGradient
+            colors={[colors.emerald, colors.emeraldDeep]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.lock}
+          >
+            <View style={styles.lockEmblem}>
+              <Ionicons name="lock-closed" size={42} color={colors.goldLight} />
+            </View>
+            <Text style={styles.lockTitle}>ميزان مقفل</Text>
+            <Text style={styles.lockNote}>افتح التطبيق ببصمتك</Text>
+            <Pressable style={styles.lockBtn} onPress={authenticate}>
+              <Ionicons name="finger-print" size={22} color={colors.emerald} />
+              <Text style={styles.lockBtnText}>فتح بالبصمة</Text>
+            </Pressable>
+          </LinearGradient>
+        ) : null}
+      </KeyboardProvider>
+    </ThemeProvider>
   );
 }
 
