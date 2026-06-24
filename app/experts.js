@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,14 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { axes } from '../data/axes';
 
 const toArabic = (n) => String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
 const { width: SCREEN_W } = Dimensions.get('window');
 const SHIMMER_RANGE = SCREEN_W * 0.55;
 
-function ExpertCard({ expert, axisIcon, writingDir, onPress }) {
+function ExpertCard({ expert, axisIcon, writingDir, onPress, colors, styles }) {
   const press = useRef(new Animated.Value(0)).current;
   const shimmerX = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef(null);
@@ -121,6 +121,8 @@ function ExpertCard({ expert, axisIcon, writingDir, onPress }) {
 export default function ExpertsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams();
   const axisId = params.axisId ? String(params.axisId) : '';
 
@@ -172,6 +174,8 @@ export default function ExpertsScreen() {
                   axisIcon={axis.icon}
                   writingDir={writingDir}
                   onPress={() => goToChat(expert)}
+                  colors={colors}
+                  styles={styles}
                 />
               ))}
             </View>
@@ -196,7 +200,7 @@ export default function ExpertsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
     paddingHorizontal: 18,
