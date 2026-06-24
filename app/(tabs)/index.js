@@ -95,7 +95,7 @@ function AxisCard({ axis, writingDir }) {
           <View style={styles.cardEmb}>
             <Ionicons
               name={axis.icon || 'ellipse-outline'}
-              size={18}
+              size={20}
               color={colors.goldLight}
             />
           </View>
@@ -355,15 +355,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 16.8,
     padding: 15,
-    minHeight: 104,
+    height: 140,
     justifyContent: 'space-between',
     overflow: 'hidden',
   },
   shimmerBand: { position: 'absolute', top: -30, bottom: -30, width: 50 },
   shimmerFill2: { flex: 1 },
   cardEmb: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
     borderRadius: 10,
     backgroundColor: colors.emerald,
     alignItems: 'center',
