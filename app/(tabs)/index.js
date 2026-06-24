@@ -235,7 +235,7 @@ export default function HomeScreen() {
               key={axis.id}
               axis={axis}
               writingDir={writingDir}
-              onPress={() => {}}
+              onPress={() => router.push({ pathname: '/experts', params: { axisId: axis.id } })}
             />
           ))}
         </View>
