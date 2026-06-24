@@ -165,62 +165,38 @@ Deno.serve(async (req) => {
 
   // 5.5) حدّ المعدّل (للمستخدم العادي فقط؛ المدير معفى تماماً).
   // يقع قبل أي نداء مكلف (OpenAI/Tavily) فالطلب المرفوض لا يستهلك رصيداً.
+  // النداء ذرّي عبر دالّة PostgreSQL check_rate_limit (تقفل الصفّ FOR UPDATE)
+  // فتمتنع الطلبات المتوازية من التسلّل معاً.
   if (!isAdmin) {
-    const nowMs = Date.now();
-    const rlRes = await fetch(
-      `${url}/rest/v1/rate_limits?select=window_start,request_count,last_request_at&user_id=eq.${userId}`,
-      { headers: dbHeaders },
-    );
-    const rlRow = rlRes.ok ? (JSON.parse(await rlRes.text())[0] ?? null) : null;
+    const rlRes = await fetch(`${url}/rest/v1/rpc/check_rate_limit`, {
+      method: "POST",
+      headers: dbHeaders,
+      body: JSON.stringify({
+        p_user_id: userId,
+        p_window_ms: RL_WINDOW_MS,
+        p_cooldown_ms: RL_COOLDOWN_MS,
+        p_max_req: RL_MAX_PER_WINDOW,
+      }),
+    });
 
-    if (!rlRow) {
-      // أوّل طلب لهذا المستخدم: أنشئ صفّاً جديداً (نافذة تبدأ الآن، عدّاد 1).
-      const iso = new Date(nowMs).toISOString();
-      await fetch(`${url}/rest/v1/rate_limits`, {
-        method: "POST",
-        headers: { ...dbHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify({ user_id: userId, window_start: iso, request_count: 1, last_request_at: iso }),
-      });
-    } else {
-      const lastMs = new Date(rlRow.last_request_at).getTime();
-      const winStartMs = new Date(rlRow.window_start).getTime();
+    // النتيجة نصّ: "allowed" أو "too_fast" أو "too_many".
+    const rlVerdict = rlRes.ok ? JSON.parse(await rlRes.text()) : "allowed";
 
-      // فحص التبريد: أقلّ من 1.5 ثانية على آخر طلب → رفض.
-      if (nowMs - lastMs < RL_COOLDOWN_MS) {
-        return json({
-          access: "rate_limited",
-          reason: "too_fast",
-          retry_after_ms: RL_COOLDOWN_MS - (nowMs - lastMs),
-          message: "أرسلت الطلبات بسرعة كبيرة. انتظر لحظةً ثم حاول مرة أخرى.",
-        }, 429);
-      }
-
-      if (nowMs - winStartMs >= RL_WINDOW_MS) {
-        // انقضت النافذة → ابدأ نافذة جديدة (عدّاد 1).
-        const iso = new Date(nowMs).toISOString();
-        await fetch(`${url}/rest/v1/rate_limits?user_id=eq.${userId}`, {
-          method: "PATCH",
-          headers: { ...dbHeaders, Prefer: "return=minimal" },
-          body: JSON.stringify({ window_start: iso, request_count: 1, last_request_at: iso }),
-        });
-      } else if ((rlRow.request_count ?? 0) >= RL_MAX_PER_WINDOW) {
-        // تجاوز السقف داخل النافذة → رفض.
-        const retryMs = RL_WINDOW_MS - (nowMs - winStartMs);
-        return json({
-          access: "rate_limited",
-          reason: "too_many_requests",
-          retry_after_ms: retryMs,
-          message: "أرسلت عدداً كبيراً من الأسئلة خلال وقت قصير. انتظر دقيقةً ثم حاول مرة أخرى.",
-        }, 429);
-      } else {
-        // ضمن الحدّ → زِد العدّاد وحدّث وقت آخر طلب.
-        await fetch(`${url}/rest/v1/rate_limits?user_id=eq.${userId}`, {
-          method: "PATCH",
-          headers: { ...dbHeaders, Prefer: "return=minimal" },
-          body: JSON.stringify({ request_count: (rlRow.request_count ?? 0) + 1, last_request_at: new Date(nowMs).toISOString() }),
-        });
-      }
+    if (rlVerdict === "too_fast") {
+      return json({
+        access: "rate_limited",
+        reason: "too_fast",
+        message: "أرسلت الطلبات بسرعة كبيرة. انتظر لحظةً ثم حاول مرة أخرى.",
+      }, 429);
     }
+    if (rlVerdict === "too_many") {
+      return json({
+        access: "rate_limited",
+        reason: "too_many_requests",
+        message: "أرسلت عدداً كبيراً من الأسئلة خلال وقت قصير. انتظر دقيقةً ثم حاول مرة أخرى.",
+      }, 429);
+    }
+    // "allowed" أو فشل النداء (نسمح بدل حجب المستخدم خطأً) → نكمل.
   }
 
   // 6) قراءة دستور المساعد المطلوب
