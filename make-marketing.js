@@ -38,18 +38,18 @@ const fg = `<svg width="1024" height="500" viewBox="0 0 1024 500" xmlns="http://
 <rect x="0" y="0" width="1024" height="500" fill="url(#bgg)"/>
 <polygon points="1024,420 1024,500 880,500" fill="#C9A227" opacity="0.16"/>
 ${icon(600, 80, 340)}
-<text x="300" y="250" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="150" word-spacing="10">ميزان</text>
-<text x="300" y="325" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="44" word-spacing="8">مساعدك الذكي المتخصّص</text>
-<rect x="200" y="350" width="200" height="6" rx="3" fill="#C9A227"/>
+<text x="300" y="232" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="132" word-spacing="10">ميزان</text>
+<text x="300" y="322" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="42" word-spacing="8">مساعدك الذكي المتخصّص</text>
+<rect x="210" y="354" width="180" height="6" rx="3" fill="#C9A227"/>
 </svg>`;
 
 const hz = `<svg width="1200" height="628" viewBox="0 0 1200 628" xmlns="http://www.w3.org/2000/svg">${defs}
 <rect x="0" y="0" width="1200" height="628" fill="url(#bgg)"/>
 <polygon points="1200,530 1200,628 1050,628" fill="#C9A227" opacity="0.16"/>
 ${icon(720, 114, 400)}
-<text x="380" y="310" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="165" word-spacing="10">ميزان</text>
-<text x="380" y="390" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="48" word-spacing="8">مساعدك الذكي المتخصّص</text>
-<rect x="270" y="418" width="220" height="7" rx="3.5" fill="#C9A227"/>
+<text x="380" y="292" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="155" word-spacing="10">ميزان</text>
+<text x="380" y="392" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="46" word-spacing="8">مساعدك الذكي المتخصّص</text>
+<rect x="280" y="426" width="200" height="6" rx="3" fill="#C9A227"/>
 </svg>`;
 
 (async () => {

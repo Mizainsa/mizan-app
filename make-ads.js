@@ -56,21 +56,21 @@ function card(i, title, descLines) {
 <rect x="0" y="0" width="1080" height="1080" fill="url(#bgg)"/>
 ${accent}
 ${icon(400, 150, 280)}
-<text x="540" y="545" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="${titleSize}" word-spacing="10">${title}</text>
+<text x="540" y="540" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="${titleSize}" word-spacing="10">${title}</text>
 ${desc}
-<rect x="470" y="${descLines.length > 1 ? 786 : 720}" width="140" height="5" rx="2.5" fill="#C9A227"/>
-<text x="540" y="${descLines.length > 1 ? 895 : 835}" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="60" word-spacing="10">ميزان</text>
+<rect x="495" y="${descLines.length > 1 ? 752 : 700}" width="90" height="4" rx="2" fill="#C9A227"/>
+<text x="540" y="${descLines.length > 1 ? 822 : 778}" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="58" word-spacing="10">ميزان</text>
 </svg>`;
 }
 
 const hero = `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">${defs('#0A3D26', '#0F5132')}
 <rect x="0" y="0" width="1080" height="1080" fill="url(#bgg)"/>
 <polygon points="1080,860 1080,1080 860,1080" fill="#C9A227" opacity="0.15"/>
-${icon(380, 170, 320)}
-<text x="540" y="660" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="150" word-spacing="10">ميزان</text>
-<text x="540" y="745" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="50" word-spacing="8">مساعدك الذكي المتخصّص</text>
-<rect x="440" y="790" width="200" height="6" rx="3" fill="#C9A227"/>
-<text x="540" y="865" text-anchor="middle" fill="#CFE3D8" font-family="Cairo" font-weight="500" font-size="38" word-spacing="8">إرشاد وتوعية بين يديك</text>
+${icon(380, 160, 320)}
+<text x="540" y="645" text-anchor="middle" fill="url(#goldw)" font-family="Cairo" font-weight="900" font-size="150" word-spacing="10">ميزان</text>
+<text x="540" y="752" text-anchor="middle" fill="#E8F2EC" font-family="Cairo" font-weight="500" font-size="50" word-spacing="8">مساعدك الذكي المتخصّص</text>
+<rect x="470" y="800" width="140" height="5" rx="2.5" fill="#C9A227"/>
+<text x="540" y="872" text-anchor="middle" fill="#CFE3D8" font-family="Cairo" font-weight="500" font-size="38" word-spacing="8">إرشاد وتوعية بين يديك</text>
 </svg>`;
 
 const cards = [
