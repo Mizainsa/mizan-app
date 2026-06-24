@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,12 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { supabase } from '../../lib/supabase';
 
 const toArabic = (n) => String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
 
-function PlanCard({ plan, featured, writingDir }) {
+function PlanCard({ plan, featured, writingDir, colors, styles }) {
   const features = Array.isArray(plan.features) ? plan.features : [];
   const isFree = Number(plan.price_sar) === 0;
 
@@ -71,6 +71,8 @@ function PlanCard({ plan, featured, writingDir }) {
 
 export default function SubscriptionsScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +132,8 @@ export default function SubscriptionsScreen() {
               plan={plan}
               featured={plan.id === 'advanced'}
               writingDir={writingDir}
+              colors={colors}
+              styles={styles}
             />
           ))}
           <Text style={styles.note}>
@@ -141,7 +145,7 @@ export default function SubscriptionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
     paddingHorizontal: 20,
