@@ -197,7 +197,7 @@ export default function HomeScreen() {
             <Pressable style={styles.hbtn}>
               <Text style={styles.lng}>AR</Text>
             </Pressable>
-            <Pressable style={styles.hbtn}>
+            <Pressable style={styles.hbtn} onPress={() => router.push('/notifications')}>
               <Ionicons name="notifications-outline" size={21} color={colors.goldLight} />
               <View style={styles.dot} />
             </Pressable>
