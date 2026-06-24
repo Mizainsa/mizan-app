@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { supabase } from '../lib/supabase';
 
 const FN_URL = 'https://lzfgjvafmvofwjiyvelq.supabase.co/functions/v1/rapid-function';
@@ -24,6 +24,8 @@ const DISCLAIMER = 'ميزان مساعد استرشادي للتوعية، وا
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams();
   const assistantName = params.name ? String(params.name) : 'ميزان العام';
   // معرّف المساعد المتخصّص (يأتي من شاشة المساعدين). غيابه يعني المنسّق «ميزان العام».
@@ -37,7 +39,6 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
 
-  // فحص جلسة المستخدم
   useEffect(() => {
     let active = true;
     supabase.auth.getSession().then(({ data }) => {
@@ -74,7 +75,6 @@ export default function ChatScreen() {
       }
 
       // جسم الطلب: نرسل assistant_id فقط إن كان المستخدم في مساعد متخصّص.
-      // غيابه → المنسّق «ميزان العام» (كما هو السلوك الافتراضي في الخادم).
       const payload = assistantId
         ? { message: text, assistant_id: assistantId }
         : { message: text };
@@ -89,7 +89,6 @@ export default function ChatScreen() {
       });
       const data = await res.json();
 
-      // حدّ المعدّل: طلبات كثيرة بسرعة
       if (data.access === 'rate_limited') {
         setMessages((m) => [...m, {
           role: 'bot',
@@ -100,7 +99,6 @@ export default function ChatScreen() {
         return;
       }
 
-      // طلب الاشتراك
       if (data.access === 'subscribe_required') {
         setMessages((m) => [...m, {
           role: 'bot',
@@ -112,7 +110,6 @@ export default function ChatScreen() {
         return;
       }
 
-      // توجيه لمساعد متخصّص (يحدث من المنسّق فقط)
       if (data.mode === 'routed') {
         setMessages((m) => [...m, {
           role: 'bot',
@@ -124,7 +121,6 @@ export default function ChatScreen() {
         return;
       }
 
-      // ردّ المساعد (متخصّص أو عام)
       const reply = data.reply || 'تعذّر الحصول على ردّ الآن. حاول مرة أخرى.';
       setMessages((m) => [...m, { role: 'bot', text: reply }]);
       scrollToEnd();
@@ -240,7 +236,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   head: {
     flexDirection: 'row',
