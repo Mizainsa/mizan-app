@@ -142,7 +142,22 @@ Deno.serve(async (req) => {
 
   const isAdmin = profile.is_admin === true;
   const used = profile.conversations_used ?? 0;
-  const limit = profile.conversations_limit ?? 3;
+
+  // الحدّ يُقرأ حيّاً من جدول plans حسب باقة المستخدم.
+  // تغيير msg_limit في plans يسري على الجميع فوراً بلا تحديث تطبيق.
+  // ترتيب الأولوية: حدّ الباقة من plans ← العمود في profiles ← احتياطي 10.
+  let limit = profile.conversations_limit ?? 10;
+  {
+    const planId = profile.plan ?? "free";
+    const planRes = await fetch(
+      `${url}/rest/v1/plans?select=msg_limit&id=eq.${planId}`,
+      { headers: dbHeaders },
+    );
+    if (planRes.ok) {
+      const planRow = JSON.parse(await planRes.text())[0] ?? null;
+      if (planRow && typeof planRow.msg_limit === "number") limit = planRow.msg_limit;
+    }
+  }
 
   // 4) قراءة الجلسة الحالية
   const sessRes = await fetch(
