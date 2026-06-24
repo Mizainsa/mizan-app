@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from '../../lib/supabase';
 import { useTheme, THEME_LIST } from '../../theme/ThemeContext';
+import TurnstileWidget from '../TurnstileWidget';
 
 const BIO_KEY = 'mizan_biometric_lock';
 const DELETE_FN_URL = 'https://lzfgjvafmvofwjiyvelq.supabase.co/functions/v1/delete-account';
@@ -51,6 +52,8 @@ export default function Account() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0); // لإعادة بناء الـwidget بعد كل محاولة
   const [bioEnabled, setBioEnabled] = useState(false);
 
   useEffect(() => {
@@ -89,9 +92,18 @@ export default function Account() {
       Alert.alert('تنبيه', 'يرجى إدخال البريد وكلمة المرور.');
       return;
     }
+    if (!captchaToken) {
+      Alert.alert('تأكيد الأمان', 'يرجى الانتظار حتى يكتمل التحقّق الأمني ثم حاول مجدداً.');
+      return;
+    }
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+      options: { captchaToken },
+    });
     setBusy(false);
+    resetCaptcha();
     if (error) Alert.alert('تعذّر الدخول', error.message);
   }
 
@@ -100,11 +112,25 @@ export default function Account() {
       Alert.alert('تنبيه', 'يرجى إدخال البريد وكلمة المرور.');
       return;
     }
+    if (!captchaToken) {
+      Alert.alert('تأكيد الأمان', 'يرجى الانتظار حتى يكتمل التحقّق الأمني ثم حاول مجدداً.');
+      return;
+    }
     setBusy(true);
-    const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { captchaToken },
+    });
     setBusy(false);
+    resetCaptcha();
     if (error) Alert.alert('تعذّر إنشاء الحساب', error.message);
     else Alert.alert('تحقّق من بريدك', 'أُرسل رابط التفعيل إلى بريدك الإلكتروني.');
+  }
+
+  function resetCaptcha() {
+    setCaptchaToken('');
+    setCaptchaKey((k) => k + 1);
   }
 
   async function forgotPassword() {
@@ -112,9 +138,14 @@ export default function Account() {
       Alert.alert('نسيت كلمة المرور', 'اكتب بريدك الإلكتروني أولاً، ثم اضغط نسيت كلمة المرور.');
       return;
     }
+    if (!captchaToken) {
+      Alert.alert('تأكيد الأمان', 'يرجى الانتظار حتى يكتمل التحقّق الأمني ثم حاول مجدداً.');
+      return;
+    }
     setBusy(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { captchaToken });
     setBusy(false);
+    resetCaptcha();
     if (error) Alert.alert('تعذّر الإرسال', error.message);
     else Alert.alert('تحقّق من بريدك', 'أُرسل رابط استعادة كلمة المرور إلى بريدك.');
   }
@@ -324,6 +355,14 @@ export default function Account() {
             </Pressable>
           ) : null}
 
+          <View style={styles.captchaBox}>
+            <TurnstileWidget
+              key={captchaKey}
+              onToken={(t) => setCaptchaToken(t)}
+              onError={() => setCaptchaToken('')}
+            />
+          </View>
+
           <Pressable style={styles.primaryBtn} onPress={mode === 'signin' ? signIn : signUp} disabled={busy}>
             {busy ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -433,6 +472,7 @@ const makeStyles = (colors) => StyleSheet.create({
   pwInput: { paddingLeft: 46 },
   eye: { position: 'absolute', left: 13, height: 50, justifyContent: 'center' },
   forgot: { fontFamily: 'Tajawal_500Medium', fontSize: 13, color: colors.emerald, alignSelf: 'flex-start', marginBottom: 12 },
+  captchaBox: { width: '100%', alignItems: 'center', marginBottom: 12, minHeight: 70 },
   primaryBtn: {
     width: '100%',
     height: 50,
