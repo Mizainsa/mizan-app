@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeContext';
+import { useLang } from '../theme/LanguageContext';
 import { supabase } from '../lib/supabase';
 
 const TYPE_ICON = { info: 'information-circle', success: 'checkmark-circle', warning: 'alert-circle' };
@@ -22,15 +23,16 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(true);
 
-  const typeColor = useCallback((t) => {
-    if (t === 'success') return colors.emerald;
-    if (t === 'warning') return colors.gold;
+  const typeColor = useCallback((ty) => {
+    if (ty === 'success') return colors.emerald;
+    if (ty === 'warning') return colors.gold;
     return colors.muted;
   }, [colors]);
 
@@ -73,7 +75,7 @@ export default function NotificationsScreen() {
           <Ionicons name="arrow-forward" size={22} color={colors.goldLight} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.headTitle, { writingDirection: writingDir }]}>الإشعارات</Text>
+          <Text style={[styles.headTitle, { writingDirection: writingDir }]}>{t('notif_title')}</Text>
         </View>
       </LinearGradient>
 
@@ -85,13 +87,13 @@ export default function NotificationsScreen() {
         <View style={styles.center}>
           <Ionicons name="lock-closed-outline" size={44} color={colors.muted} />
           <Text style={[styles.emptyText, { writingDirection: writingDir }]}>
-            سجّل دخولك لعرض إشعاراتك.
+            {t('notif_signin')}
           </Text>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="notifications-off-outline" size={44} color={colors.muted} />
-          <Text style={[styles.emptyText, { writingDirection: writingDir }]}>لا إشعارات حتى الآن.</Text>
+          <Text style={[styles.emptyText, { writingDirection: writingDir }]}>{t('notif_empty')}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
