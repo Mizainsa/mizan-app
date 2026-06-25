@@ -129,6 +129,11 @@ export const STRINGS = {
   notif_signin: { ar: "سجّل دخولك لعرض إشعاراتك.", en: "Sign in to view your notifications." },
   notif_empty: { ar: "لا إشعارات حتى الآن.", en: "No notifications yet." },
 
+  // شاشة القفل (البصمة)
+  lock_welcome: { ar: "أهلاً بك في ميزان", en: "Welcome to Mizan" },
+  lock_open_btn: { ar: "فتح بالبصمة", en: "Unlock with fingerprint" },
+  lock_prompt: { ar: "افتح ميزان باستخدام بصمتك", en: "Unlock Mizan with your fingerprint" },
+
   // عامّة
   start_chat: { ar: 'ابدأ المحادثة', en: 'Start chat' },
   back: { ar: 'العودة', en: 'Back' },
