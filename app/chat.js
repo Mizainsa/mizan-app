@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   I18nManager,
+  Animated,
+  Easing,
+  Image,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { StatusBar } from 'expo-status-bar';
@@ -16,15 +19,60 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeContext';
+import { useLang } from '../theme/LanguageContext';
 import { supabase } from '../lib/supabase';
 
 const FN_URL = 'https://lzfgjvafmvofwjiyvelq.supabase.co/functions/v1/rapid-function';
-const DISCLAIMER = 'ميزان مساعد استرشادي للتوعية، والمعلومات قد تتغيّر، ويُنصح بالتحقّق من مختصّ قبل الإجراء.';
+
+// يزيل رموز التنسيق (#، *، _، `) من ردّ المساعد ليظهر النصّ نظيفاً.
+function cleanReply(text) {
+  if (!text) return text;
+  let out = String(text);
+  out = out.replace(/```[\s\S]*?```/g, (block) => block.replace(/```/g, '').trim()); // كتل الشيفرة
+  out = out.replace(/`([^`]+)`/g, '$1');      // علامات الكود المفردة
+  out = out.replace(/^#{1,6}\s+/gm, '');       // عناوين #
+  out = out.replace(/\*\*([^*]+)\*\*/g, '$1'); // **عريض**
+  out = out.replace(/\*([^*]+)\*/g, '$1');      // *مائل*
+  out = out.replace(/__([^_]+)__/g, '$1');      // __تأكيد__
+  out = out.replace(/^\s*[-*+]\s+/gm, '• ');   // نقاط القوائم → رمز موحّد
+  out = out.replace(/^\s*>\s?/gm, '');          // اقتباسات
+  return out.trim();
+}
+
+// أنيميشن «التفكير»: ميزان ذهبي يتأرجح يميناً ويساراً.
+function ThinkingScale({ colors }) {
+  const tilt = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(tilt, { toValue: 1, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(tilt, { toValue: -1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(tilt, { toValue: 0, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [tilt]);
+
+  const rotate = tilt.interpolate({ inputRange: [-1, 1], outputRange: ['-14deg', '14deg'] });
+
+  return (
+    <Animated.View style={{ transform: [{ rotate }] }}>
+      <Image
+        source={require('../assets/scale.png')}
+        style={{ width: 30, height: 30 }}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  );
+}
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams();
   const assistantName = params.name ? String(params.name) : 'ميزان العام';
@@ -47,7 +95,7 @@ export default function ChatScreen() {
       setSignedIn(has);
       setChecking(false);
       if (has) {
-        setMessages([{ role: 'bot', text: `أنا مساعد «${assistantName}». اطرح سؤالك، كيف أخدمك اليوم؟` }]);
+        setMessages([{ role: 'bot', text: `أنا مساعد «${assistantName}». ${t('chat_greeting')}` }]);
       }
     });
     return () => { active = false; };
@@ -92,7 +140,7 @@ export default function ChatScreen() {
       if (data.access === 'rate_limited') {
         setMessages((m) => [...m, {
           role: 'bot',
-          text: data.message || 'أرسلت الطلبات بسرعة كبيرة. انتظر لحظةً ثم حاول مرة أخرى.',
+          text: data.message || t('chat_rate_limited'),
         }]);
         scrollToEnd();
         setSending(false);
@@ -102,7 +150,7 @@ export default function ChatScreen() {
       if (data.access === 'subscribe_required') {
         setMessages((m) => [...m, {
           role: 'bot',
-          text: 'لقد استفدت من رسائلك المجانية. للاستمرار والوصول إلى المختصّين، يمكنك الاشتراك.',
+          text: t('chat_subscribe_msg'),
           subscribe: true,
         }]);
         scrollToEnd();
@@ -113,7 +161,7 @@ export default function ChatScreen() {
       if (data.mode === 'routed') {
         setMessages((m) => [...m, {
           role: 'bot',
-          text: 'سؤالك يخصّ مجالاً متخصّصاً، وأنصح بالتحدّث مع المختصّ المناسب.',
+          text: t('chat_routed_msg'),
           route: data.target_name || null,
         }]);
         scrollToEnd();
@@ -121,11 +169,11 @@ export default function ChatScreen() {
         return;
       }
 
-      const reply = data.reply || 'تعذّر الحصول على ردّ الآن. حاول مرة أخرى.';
+      const reply = cleanReply(data.reply) || t('chat_reply_fallback');
       setMessages((m) => [...m, { role: 'bot', text: reply }]);
       scrollToEnd();
     } catch (e) {
-      setMessages((m) => [...m, { role: 'bot', text: 'حدث خطأ في الاتصال. تحقّق من الإنترنت وحاول مجدداً.' }]);
+      setMessages((m) => [...m, { role: 'bot', text: t('chat_conn_error') }]);
       scrollToEnd();
     } finally {
       setSending(false);
@@ -146,7 +194,7 @@ export default function ChatScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={[styles.htitle, { writingDirection: writingDir }]}>{assistantName}</Text>
-          <Text style={[styles.hsub, { writingDirection: writingDir }]}>مساعد استرشادي</Text>
+          <Text style={[styles.hsub, { writingDirection: writingDir }]}>{t('chat_subtitle')}</Text>
         </View>
       </LinearGradient>
 
@@ -157,28 +205,29 @@ export default function ChatScreen() {
       ) : !signedIn ? (
         <View style={styles.center}>
           <Ionicons name="lock-closed-outline" size={46} color={colors.muted} />
-          <Text style={[styles.gateTitle, { writingDirection: writingDir }]}>يلزم تسجيل الدخول</Text>
+          <Text style={[styles.gateTitle, { writingDirection: writingDir }]}>{t('chat_gate_title')}</Text>
           <Text style={[styles.gateNote, { writingDirection: writingDir }]}>
-            لبدء المحادثة مع مساعدي ميزان، سجّل دخولك أولاً.
+            {t('chat_gate_note')}
           </Text>
           <Pressable style={styles.gateBtn} onPress={() => router.replace('/(tabs)/account')}>
-            <Text style={styles.gateBtnText}>الذهاب لتسجيل الدخول</Text>
+            <Text style={styles.gateBtnText}>{t('chat_gate_btn')}</Text>
           </Pressable>
         </View>
       ) : (
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior="padding"
-          keyboardVerticalOffset={0}
+          keyboardVerticalOffset={insets.top + 56}
         >
           <ScrollView
             ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.scrollBody}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             <View style={styles.discBar}>
-              <Text style={[styles.discText, { writingDirection: writingDir }]}>{DISCLAIMER}</Text>
+              <Text style={[styles.discText, { writingDirection: writingDir }]}>{t('chat_disclaimer')}</Text>
             </View>
 
             {messages.map((m, i) => (
@@ -196,20 +245,20 @@ export default function ChatScreen() {
                 </Text>
                 {m.route ? (
                   <Text style={[styles.routeText, { writingDirection: writingDir }]}>
-                    ↪ المختصّ المقترح: {m.route}
+                    ↪ {t('chat_route_suggest')} {m.route}
                   </Text>
                 ) : null}
                 {m.subscribe ? (
                   <Pressable style={styles.subBtn} onPress={() => router.push('/(tabs)/subscriptions')}>
-                    <Text style={styles.subBtnText}>عرض الباقات</Text>
+                    <Text style={styles.subBtnText}>{t('chat_show_plans')}</Text>
                   </Pressable>
                 ) : null}
               </View>
             ))}
 
             {sending ? (
-              <View style={[styles.msg, styles.msgBot]}>
-                <ActivityIndicator size="small" color={colors.emerald} />
+              <View style={[styles.msg, styles.msgBot, styles.thinkingMsg]}>
+                <ThinkingScale colors={colors} />
               </View>
             ) : null}
           </ScrollView>
@@ -220,7 +269,7 @@ export default function ChatScreen() {
             </Pressable>
             <TextInput
               style={[styles.input, { writingDirection: writingDir }]}
-              placeholder="اكتب سؤالك..."
+              placeholder={t('chat_input_placeholder')}
               placeholderTextColor={colors.muted}
               value={input}
               onChangeText={setInput}
@@ -278,6 +327,7 @@ const makeStyles = (colors) => StyleSheet.create({
   msg: { maxWidth: '82%', padding: 12, borderRadius: 18, marginBottom: 12 },
   msgUser: { backgroundColor: colors.emerald, alignSelf: 'flex-end', borderBottomLeftRadius: 5 },
   msgBot: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignSelf: 'flex-start', borderBottomRightRadius: 5 },
+  thinkingMsg: { paddingVertical: 14, paddingHorizontal: 18 },
   msgUserText: { fontFamily: 'Tajawal_400Regular', fontSize: 14.5, color: '#FFFFFF', lineHeight: 24 },
   msgBotText: { fontFamily: 'Tajawal_400Regular', fontSize: 14.5, color: colors.textDark, lineHeight: 24 },
   routeText: { fontFamily: 'Cairo_700Bold', fontSize: 12.5, color: colors.gold, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.border, borderStyle: 'dashed' },
