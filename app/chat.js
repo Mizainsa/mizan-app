@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { useTheme } from '../theme/ThemeContext';
 import { useLang } from '../theme/LanguageContext';
 import { supabase } from '../lib/supabase';
@@ -69,6 +70,9 @@ function ThinkingScale({ colors }) {
 }
 
 export default function ChatScreen() {
+  // منع تصوير الشاشة داخل المحادثة (يُفعّل عند الدخول، ويُلغى تلقائيّاً عند الخروج).
+  usePreventScreenCapture();
+
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
