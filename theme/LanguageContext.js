@@ -124,6 +124,11 @@ export const STRINGS = {
   subs_load_error: { ar: "تعذّر تحميل الباقات. تحقّق من الاتصال وحاول لاحقاً.", en: "Could not load plans. Check your connection and try later." },
   subs_note: { ar: "المحادثة جلسة كاملة قد تتضمّن عدّة رسائل. الأسعار قابلة للتحديث.", en: "A conversation is a full session that may include several messages. Prices may change." },
 
+  // الإشعارات (notifications)
+  notif_title: { ar: "الإشعارات", en: "Notifications" },
+  notif_signin: { ar: "سجّل دخولك لعرض إشعاراتك.", en: "Sign in to view your notifications." },
+  notif_empty: { ar: "لا إشعارات حتى الآن.", en: "No notifications yet." },
+
   // عامّة
   start_chat: { ar: 'ابدأ المحادثة', en: 'Start chat' },
   back: { ar: 'العودة', en: 'Back' },
