@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeContext';
 import { supabase } from '../lib/supabase';
 
@@ -26,8 +27,9 @@ const SECTIONS = [
   { h: '٨. الموافقة', p: 'باستخدامك ميزان، تقرّ بأنّك قرأت هذه الشروط وفهمتها ووافقت عليها بالكامل.' },
 ];
 
-export default function TermsScreen({ onAccepted }) {
+export default function TermsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
@@ -56,7 +58,7 @@ export default function TermsScreen({ onAccepted }) {
       }
     } catch (_) { /* تجاهل، نكمل */ }
     setBusy(false);
-    onAccepted && onAccepted();
+    router.replace('/(tabs)');
   }
 
   return (
