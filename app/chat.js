@@ -12,7 +12,7 @@ import {
   Easing,
   Image,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardAvoidingView, useKeyboardState } from 'react-native-keyboard-controller';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,6 +80,7 @@ export default function ChatScreen() {
   usePreventScreenCapture();
 
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const router = useRouter();
   const { colors } = useTheme();
   const { t } = useLang();
@@ -308,7 +309,7 @@ export default function ChatScreen() {
             ) : null}
           </ScrollView>
 
-          <View style={[styles.inputBar, { paddingBottom: 10 }]}>
+          <View style={[styles.inputBar, { paddingBottom: keyboardVisible ? 10 : insets.bottom + 10 }]}>
             <Pressable style={styles.micBtn} onPress={() => {}}>
               <Ionicons name="mic-outline" size={21} color={colors.emerald} />
             </Pressable>
