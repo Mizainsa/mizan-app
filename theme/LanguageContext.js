@@ -113,6 +113,17 @@ export const STRINGS = {
   acc_del_done_title: { ar: "تم الحذف", en: "Deleted" },
   acc_del_done: { ar: "تم حذف حسابك وبياناتك بالكامل.", en: "Your account and data have been fully deleted." },
 
+  // الاشتراكات (subscriptions)
+  subs_title: { ar: "الاشتراكات", en: "Plans" },
+  subs_subtitle: { ar: "اختر ما يناسبك للوصول إلى المختصّين", en: "Choose what suits you to reach the specialists" },
+  subs_most_complete: { ar: "الأكثر تكاملاً", en: "Most complete" },
+  subs_free: { ar: "مجّاناً", en: "Free" },
+  subs_currency: { ar: "ريال", en: "SAR" },
+  subs_current_plan: { ar: "باقتك الحالية", en: "Your current plan" },
+  subs_subscribe_now: { ar: "اشترك الآن", en: "Subscribe now" },
+  subs_load_error: { ar: "تعذّر تحميل الباقات. تحقّق من الاتصال وحاول لاحقاً.", en: "Could not load plans. Check your connection and try later." },
+  subs_note: { ar: "المحادثة جلسة كاملة قد تتضمّن عدّة رسائل. الأسعار قابلة للتحديث.", en: "A conversation is a full session that may include several messages. Prices may change." },
+
   // عامّة
   start_chat: { ar: 'ابدأ المحادثة', en: 'Start chat' },
   back: { ar: 'العودة', en: 'Back' },
