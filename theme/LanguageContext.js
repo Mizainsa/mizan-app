@@ -34,7 +34,7 @@ export const STRINGS = {
   tag_family: { ar: 'أسرتك وأحوالك بثقة', en: 'Your family matters, with confidence' },
   tag_labor: { ar: 'حقوقك ومسارك المهني', en: 'Your rights and career path' },
   tag_finance: { ar: 'تعاملاتك المالية بثقة', en: 'Your finances, with confidence' },
-  tag_judicial: { ar: 'طريقك في الإجراءات العدلية', en: 'Your path through legal procedures' },
+  tag_judicial: { ar: 'إجراءاتك العدلية بوضوح', en: 'Your path through legal procedures' },
   tag_cyber: { ar: 'حمايتك في العالم الرقمي', en: 'Your protection in the digital world' },
   tag_emergency: { ar: 'تصرّفك وقت الحاجة', en: 'What to do when it matters' },
   tag_development: { ar: 'نموّك المهني خطوة بخطوة', en: 'Your professional growth, step by step' },
