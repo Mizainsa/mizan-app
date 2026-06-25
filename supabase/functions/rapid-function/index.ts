@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
 
   // 3) قراءة الملفّ (مع عدّاد المحادثات)
   const profRes = await fetch(
-    `${url}/rest/v1/profiles?select=plan,is_admin,conversations_used,conversations_limit&id=eq.${userId}`,
+    `${url}/rest/v1/profiles?select=plan,is_admin,conversations_used,conversations_limit,full_name&id=eq.${userId}`, // [اسم] أضفنا full_name
     { headers: dbHeaders },
   );
   if (!profRes.ok) return json({ status: "فشل قراءة الملف", http_code: profRes.status, detail: await profRes.text() }, 500);
@@ -238,7 +238,10 @@ Deno.serve(async (req) => {
   const assistant = JSON.parse(await asstRes.text())[0] ?? null;
   if (!assistant) return json({ status: "المساعد غير موجود", attempted: assistantId }, 404);
 
-  const dastur = assistant.system_instruction ?? "";
+  // [اسم] استخراج الاسم الأول من full_name (قد يكون فارغاً) واستبدال {{USER_NAME}}.
+  // إن كان فارغاً نضع نصّاً فارغاً، والقالب يتعامل مع ذلك بترحيب بلا اسم.
+  const firstName = String(profile.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+  const dastur = (assistant.system_instruction ?? "").split("{{USER_NAME}}").join(firstName);
   const isOrchestrator = assistantId === "orchestrator";
 
   // 7) إعداد نداء OpenAI
