@@ -55,6 +55,13 @@ export const STRINGS = {
   chat_conn_error: { ar: 'حدث خطأ في الاتصال. تحقّق من الإنترنت وحاول مجدداً.', en: 'A connection error occurred. Check your internet and try again.' },
   chat_disclaimer: { ar: 'ميزان مساعد استرشادي للتوعية، والمعلومات قابلة للتغيير، ويُنصح بالرجوع إلى الجهة الرسمية المعنيّة قبل الإجراء.', en: 'Mizan is an awareness guidance assistant. Information may change; please refer to the relevant official authority before taking action.' },
 
+  // المساعدون (experts)
+  experts_title: { ar: "المساعدون", en: "Assistants" },
+  experts_choose: { ar: "اختر المختصّ", en: "Choose a specialist" },
+  experts_start_chat: { ar: "ابدأ المحادثة", en: "Start chat" },
+  experts_not_found: { ar: "تعذّر العثور على هذا المحور.", en: "This category could not be found." },
+  experts_back: { ar: "العودة", en: "Back" },
+
   // عامّة
   start_chat: { ar: 'ابدأ المحادثة', en: 'Start chat' },
   back: { ar: 'العودة', en: 'Back' },
