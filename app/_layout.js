@@ -27,10 +27,13 @@ import {
 } from '@expo-google-fonts/tajawal';
 import { colors } from '../theme/colors';
 import { ThemeProvider } from '../theme/ThemeContext';
+import { LanguageProvider } from '../theme/LanguageContext';
 
-// إجبار الاتجاه من اليمين لليسار
+// الاتجاه الافتراضي عند أول إقلاع: عربي (RTL). يُضبط لاحقاً حسب اللغة المحفوظة.
 I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
+if (!I18nManager.isRTL) {
+  I18nManager.forceRTL(true);
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -52,7 +55,7 @@ export default function RootLayout() {
 
   async function authenticate() {
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'افتح ميزان ببصمتك',
+      promptMessage: 'افتح ميزان باستخدام بصمتك',
       cancelLabel: 'إلغاء',
     });
     if (result.success) setLocked(false);
@@ -65,23 +68,13 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   useEffect(() => {
+    // القفل عند أوّل فتح فقط (إن كان مفعّلاً). لا يُقفل عند ذهاب التطبيق للخلفية.
     AsyncStorage.getItem(BIO_KEY).then((v) => {
       if (v === 'true') {
         setLocked(true);
         authenticate();
       }
     });
-
-    const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'background') {
-        AsyncStorage.getItem(BIO_KEY).then((v) => {
-          if (v === 'true') setLocked(true);
-        });
-      } else if (next === 'active' && lockedRef.current) {
-        authenticate();
-      }
-    });
-    return () => sub.remove();
   }, []);
 
   if (!fontsLoaded) {
@@ -89,29 +82,30 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <KeyboardProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-        {locked ? (
-          <LinearGradient
-            colors={[colors.emerald, colors.emeraldDeep]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.lock}
-          >
-            <View style={styles.lockEmblem}>
-              <Ionicons name="lock-closed" size={42} color={colors.goldLight} />
-            </View>
-            <Text style={styles.lockTitle}>ميزان مقفل</Text>
-            <Text style={styles.lockNote}>افتح التطبيق ببصمتك</Text>
-            <Pressable style={styles.lockBtn} onPress={authenticate}>
-              <Ionicons name="finger-print" size={22} color={colors.emerald} />
-              <Text style={styles.lockBtnText}>فتح بالبصمة</Text>
-            </Pressable>
-          </LinearGradient>
-        ) : null}
-      </KeyboardProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <KeyboardProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+          {locked ? (
+            <LinearGradient
+              colors={[colors.emerald, colors.emeraldDeep]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.lock}
+            >
+              <View style={styles.lockEmblem}>
+                <Ionicons name="lock-closed" size={42} color={colors.goldLight} />
+              </View>
+              <Text style={styles.lockTitle}>أهلاً بك في ميزان</Text>
+              <Pressable style={styles.lockBtn} onPress={authenticate}>
+                <Ionicons name="finger-print" size={22} color={colors.emerald} />
+                <Text style={styles.lockBtnText}>فتح بالبصمة</Text>
+              </Pressable>
+            </LinearGradient>
+          ) : null}
+        </KeyboardProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 
