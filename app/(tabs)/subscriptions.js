@@ -13,19 +13,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
+import { useLang } from '../../theme/LanguageContext';
 import { supabase } from '../../lib/supabase';
 
 const toArabic = (n) => String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
 
-function PlanCard({ plan, featured, writingDir, colors, styles }) {
+function PlanCard({ plan, featured, t, lang, writingDir, colors, styles }) {
   const features = Array.isArray(plan.features) ? plan.features : [];
   const isFree = Number(plan.price_sar) === 0;
+  // الأرقام تُعرض هندية مع العربية وغربية مع الإنجليزية.
+  const priceText = lang === 'ar' ? toArabic(plan.price_sar) : String(plan.price_sar);
 
   return (
     <View style={[styles.card, featured && styles.cardFeatured]}>
       {featured ? (
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>الأكثر تكاملاً</Text>
+          <Text style={styles.badgeText}>{t('subs_most_complete')}</Text>
         </View>
       ) : null}
 
@@ -33,13 +36,13 @@ function PlanCard({ plan, featured, writingDir, colors, styles }) {
 
       <View style={styles.priceRow}>
         {isFree ? (
-          <Text style={styles.priceFree}>مجّاناً</Text>
+          <Text style={styles.priceFree}>{t('subs_free')}</Text>
         ) : (
           <>
             <Text style={[styles.price, featured && styles.priceGold]}>
-              {toArabic(plan.price_sar)}
+              {priceText}
             </Text>
-            <Text style={styles.priceUnit}>ريال / شهريّاً</Text>
+            <Text style={styles.priceUnit}>{t('subs_currency')}</Text>
           </>
         )}
       </View>
@@ -62,7 +65,7 @@ function PlanCard({ plan, featured, writingDir, colors, styles }) {
         disabled={isFree}
       >
         <Text style={[styles.ctaText, featured && !isFree && styles.ctaTextDark]}>
-          {isFree ? 'باقتك الحالية' : 'اشترك الآن'}
+          {isFree ? t('subs_current_plan') : t('subs_subscribe_now')}
         </Text>
       </Pressable>
     </View>
@@ -72,6 +75,7 @@ function PlanCard({ plan, featured, writingDir, colors, styles }) {
 export default function SubscriptionsScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { t, lang } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
   const [plans, setPlans] = useState([]);
@@ -107,9 +111,9 @@ export default function SubscriptionsScreen() {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
-        <Text style={[styles.headerTitle, { writingDirection: writingDir }]}>الاشتراكات</Text>
+        <Text style={[styles.headerTitle, { writingDirection: writingDir }]}>{t('subs_title')}</Text>
         <Text style={[styles.headerSub, { writingDirection: writingDir }]}>
-          اختر ما يناسبك للوصول إلى المختصّين
+          {t('subs_subtitle')}
         </Text>
       </LinearGradient>
 
@@ -121,7 +125,7 @@ export default function SubscriptionsScreen() {
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={42} color={colors.muted} />
           <Text style={[styles.errText, { writingDirection: writingDir }]}>
-            تعذّر تحميل الباقات. تحقّق من الاتصال وحاول لاحقاً.
+            {t('subs_load_error')}
           </Text>
         </View>
       ) : (
@@ -131,13 +135,15 @@ export default function SubscriptionsScreen() {
               key={plan.id}
               plan={plan}
               featured={plan.id === 'advanced'}
+              t={t}
+              lang={lang}
               writingDir={writingDir}
               colors={colors}
               styles={styles}
             />
           ))}
           <Text style={styles.note}>
-            المحادثة جلسة كاملة قد تتضمّن عدّة رسائل. الأسعار قابلة للتحديث.
+            {t('subs_note')}
           </Text>
         </ScrollView>
       )}
