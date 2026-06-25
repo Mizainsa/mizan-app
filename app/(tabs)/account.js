@@ -256,13 +256,13 @@ export default function Account() {
           </View>
 
           <View style={styles.settingsCard}>
-            <View style={styles.settingRow}>
+            <Pressable style={styles.settingRow} onPress={() => router.push('/notifications')}>
               <View style={styles.settingLabel}>
                 <Ionicons name="notifications-outline" size={19} color={colors.textBody} />
                 <Text style={[styles.settingText, { writingDirection: writingDir }]}>الإشعارات</Text>
               </View>
               <Ionicons name="chevron-back" size={18} color={colors.muted} />
-            </View>
+            </Pressable>
             <View style={styles.divider} />
             <View style={styles.settingRow}>
               <View style={styles.settingLabel}>
@@ -301,10 +301,6 @@ export default function Account() {
               <Ionicons name="chevron-back" size={18} color={colors.muted} />
             </Pressable>
           </View>
-
-          <Text style={[styles.disclaimer, { writingDirection: writingDir }]}>
-            ميزان مساعد استرشادي للتوعية، والمعلومات قد تتغيّر، ويُنصح بالتحقّق من مختصّ قبل الإجراء.
-          </Text>
         </ScrollView>
       </View>
     );
@@ -391,10 +387,6 @@ export default function Account() {
             {mode === 'signin' ? 'ليس لديك حساب؟ إنشاء حساب' : 'لديك حساب؟ تسجيل الدخول'}
           </Text>
         </Pressable>
-
-        <Text style={[styles.disclaimer, { writingDirection: writingDir }]}>
-          ميزان مساعد استرشادي للتوعية، والمعلومات قد تتغيّر، ويُنصح بالتحقّق من مختصّ قبل الإجراء.
-        </Text>
       </ScrollView>
     </View>
   );
@@ -513,5 +505,4 @@ const makeStyles = (colors) => StyleSheet.create({
   settingLabel: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingText: { fontFamily: 'Tajawal_500Medium', fontSize: 15, color: colors.textDark },
   divider: { height: 1, backgroundColor: colors.border },
-  disclaimer: { fontFamily: 'Tajawal_400Regular', fontSize: 11.5, lineHeight: 19, color: colors.muted, textAlign: 'center', marginTop: 18 },
 });
