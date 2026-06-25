@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
+import { useLang } from '../../theme/LanguageContext';
 
 const ICONS = {
   index: 'home',
@@ -23,6 +24,8 @@ function tabIcon(routeName) {
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { t } = useLang();
+
   return (
     <Tabs
       screenOptions={{
@@ -43,10 +46,10 @@ export default function TabsLayout() {
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'الرئيسية', tabBarIcon: tabIcon('index') }} />
-      <Tabs.Screen name="estimator" options={{ title: 'المساعد التقديري', tabBarIcon: tabIcon('estimator') }} />
-      <Tabs.Screen name="subscriptions" options={{ title: 'الاشتراكات', tabBarIcon: tabIcon('subscriptions') }} />
-      <Tabs.Screen name="account" options={{ title: 'حسابي', tabBarIcon: tabIcon('account') }} />
+      <Tabs.Screen name="index" options={{ title: t('tab_home'), tabBarIcon: tabIcon('index') }} />
+      <Tabs.Screen name="estimator" options={{ title: t('tab_estimator'), tabBarIcon: tabIcon('estimator') }} />
+      <Tabs.Screen name="subscriptions" options={{ title: t('tab_subscriptions'), tabBarIcon: tabIcon('subscriptions') }} />
+      <Tabs.Screen name="account" options={{ title: t('tab_account'), tabBarIcon: tabIcon('account') }} />
     </Tabs>
   );
 }
