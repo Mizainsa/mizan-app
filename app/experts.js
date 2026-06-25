@@ -16,13 +16,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeContext';
+import { useLang } from '../theme/LanguageContext';
 import { axes } from '../data/axes';
 
-const toArabic = (n) => String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
 const { width: SCREEN_W } = Dimensions.get('window');
 const SHIMMER_RANGE = SCREEN_W * 0.55;
 
-function ExpertCard({ expert, axisIcon, writingDir, onPress, colors, styles }) {
+// مفاتيح ترجمة عناوين المحاور (نفس مفاتيح الرئيسية).
+const AXIS_TITLE_KEY = {
+  family: 'axis_family',
+  labor: 'axis_labor',
+  finance: 'axis_finance',
+  judicial: 'axis_judicial',
+  cyber: 'axis_cyber',
+  emergency: 'axis_emergency',
+  development: 'axis_development',
+};
+
+function ExpertCard({ expert, axisIcon, ctaText, writingDir, onPress, colors, styles }) {
   const press = useRef(new Animated.Value(0)).current;
   const shimmerX = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef(null);
@@ -95,7 +106,7 @@ function ExpertCard({ expert, axisIcon, writingDir, onPress, colors, styles }) {
           </View>
           <Text style={[styles.cardTitle, { writingDirection: writingDir }]}>{expert.name}</Text>
           <View style={styles.cardCta}>
-            <Text style={[styles.cardCtaText, { writingDirection: writingDir }]}>ابدأ المحادثة</Text>
+            <Text style={[styles.cardCtaText, { writingDirection: writingDir }]}>{ctaText}</Text>
             <Ionicons name="arrow-back" size={14} color={colors.gold} />
           </View>
           <Animated.View
@@ -122,12 +133,14 @@ export default function ExpertsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams();
   const axisId = params.axisId ? String(params.axisId) : '';
 
   const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
   const axis = axes.find((a) => a.id === axisId) ?? null;
+  const axisTitle = axis ? (t(AXIS_TITLE_KEY[axis.id]) || axis.title) : t('experts_title');
 
   const goToChat = (expert) => {
     router.push({ pathname: '/chat', params: { assistantId: expert.id, name: expert.name } });
@@ -149,10 +162,7 @@ export default function ExpertsScreen() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { writingDirection: writingDir }]}>
-              {axis ? axis.title : 'المساعدون'}
-            </Text>
-            <Text style={[styles.headerSub, { writingDirection: writingDir }]}>
-              {axis ? `${toArabic(axis.experts.length)} مختصّون` : ''}
+              {axisTitle}
             </Text>
           </View>
         </View>
@@ -163,7 +173,7 @@ export default function ExpertsScreen() {
           <>
             <View style={styles.seclabel}>
               <View style={styles.secbar} />
-              <Text style={styles.sectionTitle}>اختر المختصّ</Text>
+              <Text style={styles.sectionTitle}>{t('experts_choose')}</Text>
             </View>
 
             <View style={styles.grid}>
@@ -172,6 +182,7 @@ export default function ExpertsScreen() {
                   key={expert.id}
                   expert={expert}
                   axisIcon={axis.icon}
+                  ctaText={t('experts_start_chat')}
                   writingDir={writingDir}
                   onPress={() => goToChat(expert)}
                   colors={colors}
@@ -179,19 +190,15 @@ export default function ExpertsScreen() {
                 />
               ))}
             </View>
-
-            <Text style={styles.disclaimer}>
-              المعلومات قابلة للتحديث, ويُنصح باستشارة مختصّ قبل الإجراء.
-            </Text>
           </>
         ) : (
           <View style={styles.empty}>
             <Ionicons name="alert-circle-outline" size={44} color={colors.muted} />
             <Text style={[styles.emptyText, { writingDirection: writingDir }]}>
-              تعذّر العثور على هذا المحور.
+              {t('experts_not_found')}
             </Text>
             <Pressable style={styles.emptyBtn} onPress={() => router.back()}>
-              <Text style={styles.emptyBtnText}>العودة</Text>
+              <Text style={styles.emptyBtnText}>{t('experts_back')}</Text>
             </Pressable>
           </View>
         )}
@@ -221,12 +228,6 @@ const makeStyles = (colors) => StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: { fontFamily: 'Cairo_700Bold', fontSize: 20, color: '#FFFFFF' },
-  headerSub: {
-    fontFamily: 'Tajawal_500Medium',
-    fontSize: 12.5,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 3,
-  },
   body: { padding: 18, paddingBottom: 40 },
   seclabel: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 15 },
   secbar: { width: 26, height: 3, borderRadius: 2, backgroundColor: colors.gold },
@@ -278,14 +279,6 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   cardCta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 },
   cardCtaText: { fontFamily: 'Tajawal_700Bold', fontSize: 12, color: colors.gold },
-  disclaimer: {
-    fontFamily: 'Tajawal_400Regular',
-    fontSize: 11.5,
-    lineHeight: 19,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 12,
-  },
   empty: { alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
   emptyText: { fontFamily: 'Tajawal_500Medium', fontSize: 15, color: colors.muted },
   emptyBtn: {
