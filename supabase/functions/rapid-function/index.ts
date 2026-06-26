@@ -127,10 +127,20 @@ Deno.serve(async (req) => {
   // قراءة جسم الطلب
   let userMessage = "السلام عليكم";
   let assistantId = "orchestrator";
+  let history: Array<{ role: string; content: string }> = [];
+  let userLang = "ar";
   try {
     const body = await req.json();
     if (body?.message) userMessage = body.message;
     if (body?.assistant_id) assistantId = body.assistant_id;
+    if (body?.lang === "en" || body?.lang === "ar") userLang = body.lang;
+    // تاريخ المحادثة: نقبل فقط أدوار user/assistant، نصّاً، بحدّ أقصى 10 رسائل.
+    if (Array.isArray(body?.history)) {
+      history = body.history
+        .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+        .slice(-10)
+        .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+    }
   } catch (_) { /* الافتراضي */ }
 
   // 1) رمز المستخدم
@@ -255,8 +265,21 @@ Deno.serve(async (req) => {
     "and will be removed before the user sees it. After the tag, continue normally per your rules.";
 
   // 7) إعداد نداء OpenAI
+  // تعليمة اللغة: تُلزم المساعد بالردّ بلغة المستخدم (عربي/إنجليزي) مهما كانت لغة الدستور.
+  const langDirective = userLang === "en"
+    ? "\n\n[LANGUAGE — MANDATORY] The user is using English. Reply ONLY in clear, natural English, regardless of the language of these instructions. Keep the same meaning, tone, and the closing disclaimer, translated naturally into English."
+    : "\n\n[اللغة واللهجة — إلزامي] المستخدم يكتب بالعربية. إن كتب بلهجة سعودية (نجدية، حجازية، جنوبية/عسيرية، شرقية/حساوية) فحاكِ لهجته نفسها بشكل طبيعي ومحترم. وإن كتب بالفصحى فردّ بالفصحى الواضحة. لا تتكلّف اللهجة إن لم يستخدمها المستخدم.";
+
+  // نزيل آخر رسالة من التاريخ إن كانت نفس رسالة المستخدم الحالية (تفادي التكرار).
+  const trimmedHistory = (history.length > 0 &&
+    history[history.length - 1].role === "user" &&
+    history[history.length - 1].content === userMessage)
+    ? history.slice(0, -1)
+    : history;
+
   const messages: Array<Record<string, unknown>> = [
-    { role: "system", content: dastur + scopeGuard },
+    { role: "system", content: dastur + scopeGuard + langDirective },
+    ...trimmedHistory,
     { role: "user", content: userMessage },
   ];
   const payload: Record<string, unknown> = { model: "gpt-4o-mini", messages };
