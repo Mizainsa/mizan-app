@@ -33,7 +33,7 @@ const AXIS_TITLE_KEY = {
   development: 'axis_development',
 };
 
-function ExpertCard({ expert, axisIcon, ctaText, writingDir, onPress, colors, styles }) {
+function ExpertCard({ expert, displayName, axisIcon, ctaText, writingDir, onPress, colors, styles }) {
   const press = useRef(new Animated.Value(0)).current;
   const shimmerX = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef(null);
@@ -104,7 +104,7 @@ function ExpertCard({ expert, axisIcon, ctaText, writingDir, onPress, colors, st
           <View style={styles.cardEmb}>
             <Ionicons name={axisIcon || 'ellipse-outline'} size={20} color={colors.goldLight} />
           </View>
-          <Text style={[styles.cardTitle, { writingDirection: writingDir }]}>{expert.name}</Text>
+          <Text style={[styles.cardTitle, { writingDirection: writingDir }]}>{displayName || expert.name}</Text>
           <View style={styles.cardCta}>
             <Text style={[styles.cardCtaText, { writingDirection: writingDir }]}>{ctaText}</Text>
             <Ionicons name="arrow-back" size={14} color={colors.gold} />
@@ -133,7 +133,7 @@ export default function ExpertsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams();
   const axisId = params.axisId ? String(params.axisId) : '';
@@ -142,8 +142,11 @@ export default function ExpertsScreen() {
   const axis = axes.find((a) => a.id === axisId) ?? null;
   const axisTitle = axis ? (t(AXIS_TITLE_KEY[axis.id]) || axis.title) : t('experts_title');
 
+  // اسم المساعد حسب اللغة: name_en بالإنجليزية، name بالعربية.
+  const expertName = (e) => (lang === 'en' && e.name_en ? e.name_en : e.name);
+
   const goToChat = (expert) => {
-    router.push({ pathname: '/chat', params: { assistantId: expert.id, name: expert.name } });
+    router.push({ pathname: '/chat', params: { assistantId: expert.id, name: expertName(expert) } });
   };
 
   return (
@@ -181,6 +184,7 @@ export default function ExpertsScreen() {
                 <ExpertCard
                   key={expert.id}
                   expert={expert}
+                  displayName={expertName(expert)}
                   axisIcon={axis.icon}
                   ctaText={t('experts_start_chat')}
                   writingDir={writingDir}
