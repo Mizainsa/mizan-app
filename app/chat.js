@@ -22,6 +22,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ScreenCapture from 'expo-screen-capture';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 import { useTheme } from '../theme/ThemeContext';
 import { useLang } from '../theme/LanguageContext';
 import { supabase } from '../lib/supabase';
@@ -90,11 +94,46 @@ export default function ChatScreen() {
   const assistantId = params.assistantId ? String(params.assistantId) : null;
 
   const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
+
+  // التعرّف على الكلام: نحدّث حقل الإدخال بالنصّ المُحوّل فور وصوله.
+  useSpeechRecognitionEvent('start', () => setRecording(true));
+  useSpeechRecognitionEvent('end', () => setRecording(false));
+  useSpeechRecognitionEvent('result', (ev) => {
+    const text = ev?.results?.[0]?.transcript;
+    if (typeof text === 'string') setInput(text);
+  });
+  useSpeechRecognitionEvent('error', () => {
+    setRecording(false);
+  });
+
+  // زرّ المايك: يبدأ/يوقف التسجيل. لغة التعرّف حسب لغة المستخدم.
+  const toggleMic = async () => {
+    if (recording) {
+      ExpoSpeechRecognitionModule.stop();
+      return;
+    }
+    try {
+      const perm = await ExpoSpeechRecognitionModule.requestMicrophonePermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('', t('mic_permission_denied'));
+        return;
+      }
+      ExpoSpeechRecognitionModule.start({
+        lang: lang === 'en' ? 'en-US' : 'ar-SA',
+        interimResults: true,
+        continuous: false,
+      });
+    } catch (_) {
+      setRecording(false);
+      Alert.alert('', t('mic_error'));
+    }
+  };
   const [checking, setChecking] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [recording, setRecording] = useState(false);
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false); // اكتمل تحميل المحادثة المحفوظة؟
   const scrollRef = useRef(null);
@@ -354,8 +393,12 @@ export default function ChatScreen() {
           </ScrollView>
 
           <View style={[styles.inputBar, { paddingBottom: keyboardVisible ? 10 : insets.bottom + 10 }]}>
-            <Pressable style={styles.micBtn} onPress={() => {}}>
-              <Ionicons name="mic-outline" size={21} color={colors.emerald} />
+            <Pressable style={styles.micBtn} onPress={toggleMic}>
+              <Ionicons
+                name={recording ? 'stop-circle' : 'mic-outline'}
+                size={21}
+                color={recording ? '#C0392B' : colors.emerald}
+              />
             </Pressable>
             <TextInput
               style={[styles.input, { writingDirection: writingDir }]}
