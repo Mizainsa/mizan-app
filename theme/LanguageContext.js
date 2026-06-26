@@ -54,6 +54,8 @@ export const STRINGS = {
   chat_copied: { ar: 'تم نسخ النص', en: 'Text copied' },
   chat_typing: { ar: 'يكتب الآن...', en: 'Typing...' },
   chat_go_to: { ar: 'انتقل إلى', en: 'Go to' },
+  mic_permission_denied: { ar: 'يحتاج ميزان إذن الميكروفون لتحويل صوتك إلى نصّ. فعّل الإذن من الإعدادات.', en: 'Mizan needs microphone permission to convert your voice to text. Enable it in settings.' },
+  mic_error: { ar: 'تعذّر تشغيل الميكروفون. تأكّد من دعم جهازك للتعرّف على الكلام.', en: 'Could not start the microphone. Make sure your device supports speech recognition.' },
   chat_reply_fallback: { ar: 'تعذّر الحصول على ردّ الآن. حاول مرة أخرى.', en: 'Could not get a reply right now. Please try again.' },
   chat_conn_error: { ar: 'حدث خطأ في الاتصال. تحقّق من الإنترنت وحاول مجدداً.', en: 'A connection error occurred. Check your internet and try again.' },
   chat_disclaimer: { ar: 'ميزان مساعد استرشادي للتوعية، والمعلومات قابلة للتغيير، ويُنصح بالرجوع إلى الجهة الرسمية المعنيّة قبل الإجراء.', en: 'Mizan is an awareness guidance assistant. Information may change; please refer to the relevant official authority before taking action.' },
