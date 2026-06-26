@@ -104,7 +104,7 @@ function ExpertCard({ expert, displayName, axisIcon, ctaText, writingDir, onPres
           <View style={styles.cardEmb}>
             <Ionicons name={axisIcon || 'ellipse-outline'} size={20} color={colors.goldLight} />
           </View>
-          <Text style={[styles.cardTitle, { writingDirection: writingDir }]}>{displayName || expert.name}</Text>
+          <Text style={[styles.cardTitle, { writingDirection: writingDir }]} numberOfLines={2}>{displayName || expert.name}</Text>
           <View style={styles.cardCta}>
             <Text style={[styles.cardCtaText, { writingDirection: writingDir }]}>{ctaText}</Text>
             <Ionicons name="arrow-back" size={14} color={colors.gold} />

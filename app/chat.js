@@ -306,7 +306,7 @@ export default function ChatScreen() {
           <Ionicons name="arrow-forward" size={22} color={colors.goldLight} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.htitle, { writingDirection: writingDir }]}>{assistantName}</Text>
+          <Text style={[styles.htitle, { writingDirection: writingDir }]} numberOfLines={1}>{assistantName}</Text>
           <Text style={[styles.hsub, { writingDirection: writingDir }]}>{t('chat_subtitle')}</Text>
         </View>
         {signedIn ? (
