@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Updates from 'expo-updates';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -27,15 +28,14 @@ import {
 import { ThemeProvider, useTheme } from '../theme/ThemeContext';
 import { LanguageProvider, useLang } from '../theme/LanguageContext';
 
-// الاتجاه الافتراضي عند أول إقلاع: عربي (RTL). يُضبط لاحقاً حسب اللغة المحفوظة.
+const LANG_KEY = 'mizan_language';
+const BIO_KEY = 'mizan_biometric_lock';
+
+// السماح بالاتجاهين. الاتجاه الفعلي يُضبط في RootLayout حسب اللغة المحفوظة،
+// فلا نفرض RTL دائماً (حتى تظهر الإنجليزية LTR صحيحة).
 I18nManager.allowRTL(true);
-if (!I18nManager.isRTL) {
-  I18nManager.forceRTL(true);
-}
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-
-const BIO_KEY = 'mizan_biometric_lock';
 
 // بوّابة القفل بالبصمة. تعيش داخل ThemeProvider وLanguageProvider،
 // فتتبع الثيم واللغة. تقفل عند أوّل فتح فقط (لا عند الخلفية).
@@ -93,13 +93,38 @@ export default function RootLayout() {
     Tajawal_700Bold,
   });
 
+  // ضبط الاتجاه حسب اللغة المحفوظة: عربي→RTL، إنجليزي→LTR.
+  // إن لم يتطابق الاتجاه الحالي مع اللغة، نضبطه ونعيد التشغيل مرّة واحدة.
+  const [dirReady, setDirReady] = useState(false);
   useEffect(() => {
-    if (fontsLoaded) {
+    let active = true;
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(LANG_KEY);
+        const lang = saved === 'en' ? 'en' : 'ar'; // الافتراضي عربي
+        const shouldBeRTL = lang === 'ar';
+        if (I18nManager.isRTL !== shouldBeRTL) {
+          I18nManager.forceRTL(shouldBeRTL);
+          // إعادة تشغيل لتطبيق الاتجاه الجديد (مرّة واحدة فقط عند عدم التطابق).
+          await Updates.reloadAsync();
+          return; // لن يصل هنا غالباً (التطبيق يعيد التشغيل)
+        }
+      } catch (_) {
+        // عند أي خطأ: نكمل بالاتجاه الحالي دون تعطيل الإقلاع.
+      }
+      if (active) setDirReady(true);
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (fontsLoaded && dirReady) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, dirReady]);
 
-  if (!fontsLoaded) {
+  // ننتظر تحميل الخطوط وضبط الاتجاه قبل الرسم (تفادياً لوميض الاتجاه الخاطئ).
+  if (!fontsLoaded || !dirReady) {
     return null;
   }
 
