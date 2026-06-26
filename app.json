@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Mezain",
+    "name": "Mizan",
     "slug": "mizan",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,13 +13,19 @@
     "android": {
       "package": "sa.mizan.app",
       "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0F5132"
       }
     },
     "ios": {
-      "bundleIdentifier": "sa.mizan.app"
+      "bundleIdentifier": "sa.mizan.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "يستخدم ميزان الميكروفون لتحويل صوتك إلى نصّ عند إدخال سؤالك صوتيّاً."
+      }
     },
     "plugins": [
       "expo-router",
