@@ -8,7 +8,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Updates from 'expo-updates';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -94,25 +93,24 @@ export default function RootLayout() {
   });
 
   // ضبط الاتجاه حسب اللغة المحفوظة: عربي→RTL، إنجليزي→LTR.
-  // إن لم يتطابق الاتجاه الحالي مع اللغة، نضبطه ونعيد التشغيل مرّة واحدة.
+  // نضبط الاتجاه فقط (دون إعادة تشغيل من هنا) ثم نكمل الرسم فوراً.
+  // إعادة التشغيل عند *تبديل* اللغة مسؤولية زرّ اللغة في الرئيسية، لا الجذر،
+  // حتى لا يعلق الجذر في شاشة تحميل إن تعذّرت إعادة التشغيل.
   const [dirReady, setDirReady] = useState(false);
   useEffect(() => {
     let active = true;
     (async () => {
       try {
         const saved = await AsyncStorage.getItem(LANG_KEY);
-        const lang = saved === 'en' ? 'en' : 'ar'; // الافتراضي عربي
-        const shouldBeRTL = lang === 'ar';
+        const shouldBeRTL = saved !== 'en'; // الافتراضي عربي (RTL)
         if (I18nManager.isRTL !== shouldBeRTL) {
+          I18nManager.allowRTL(true);
           I18nManager.forceRTL(shouldBeRTL);
-          // إعادة تشغيل لتطبيق الاتجاه الجديد (مرّة واحدة فقط عند عدم التطابق).
-          await Updates.reloadAsync();
-          return; // لن يصل هنا غالباً (التطبيق يعيد التشغيل)
         }
       } catch (_) {
         // عند أي خطأ: نكمل بالاتجاه الحالي دون تعطيل الإقلاع.
       }
-      if (active) setDirReady(true);
+      if (active) setDirReady(true); // نرسم دائماً، فلا شاشة بيضاء عالقة.
     })();
     return () => { active = false; };
   }, []);
