@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   Pressable,
+  Alert,
   ScrollView,
   ActivityIndicator,
   StyleSheet,
@@ -20,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ScreenCapture from 'expo-screen-capture';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../theme/ThemeContext';
 import { useLang } from '../theme/LanguageContext';
 import { supabase } from '../lib/supabase';
@@ -80,7 +82,7 @@ export default function ChatScreen() {
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const router = useRouter();
   const { colors } = useTheme();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams();
   const assistantName = params.name ? String(params.name) : 'ميزان العام';
@@ -156,6 +158,14 @@ export default function ChatScreen() {
   };
 
   // مسح المحادثة المحفوظة محليّاً والعودة لرسالة الترحيب.
+  // نسخ نصّ الرسالة للحافظة بالضغط المطوّل.
+  const copyMessage = async (text) => {
+    try {
+      await Clipboard.setStringAsync(String(text || ''));
+      Alert.alert('', t('chat_copied'));
+    } catch (_) { /* تجاهل */ }
+  };
+
   const clearConversation = async () => {
     try { await AsyncStorage.removeItem(convKey(assistantId)); } catch (_) {}
     setMessages([greeting]);
@@ -178,10 +188,17 @@ export default function ChatScreen() {
         return;
       }
 
+      // تاريخ المحادثة: آخر الرسائل لتزويد المساعد بالسياق (يتذكّر ما سبق).
+      // نحوّل أدوار الواجهة إلى أدوار النموذج، ونتجاهل الرسائل الخاصّة (أزرار/توجيه).
+      const history = messages
+        .filter((mm) => (mm.role === 'user' || mm.role === 'bot') && !mm.subscribe && !mm.route)
+        .slice(-10)
+        .map((mm) => ({ role: mm.role === 'user' ? 'user' : 'assistant', content: String(mm.text || '') }));
+
       // جسم الطلب: نرسل assistant_id فقط إن كان المستخدم في مساعد متخصّص.
       const payload = assistantId
-        ? { message: text, assistant_id: assistantId }
-        : { message: text };
+        ? { message: text, assistant_id: assistantId, history, lang }
+        : { message: text, history, lang };
 
       const res = await fetch(FN_URL, {
         method: 'POST',
@@ -219,6 +236,7 @@ export default function ChatScreen() {
           role: 'bot',
           text: t('chat_routed_msg'),
           route: data.target_name || null,
+          routeId: data.routed_to || null,   // معرّف المساعد المستهدف للنقل الفعلي
         }]);
         scrollToEnd();
         setSending(false);
@@ -292,8 +310,10 @@ export default function ChatScreen() {
             </View>
 
             {messages.map((m, i) => (
-              <View
+              <Pressable
                 key={i}
+                onLongPress={() => copyMessage(m.text)}
+                delayLongPress={350}
                 style={[styles.msg, m.role === 'user' ? styles.msgUser : styles.msgBot]}
               >
                 <Text
@@ -305,21 +325,30 @@ export default function ChatScreen() {
                   {m.text}
                 </Text>
                 {m.route ? (
-                  <Text style={[styles.routeText, { writingDirection: writingDir }]}>
-                    ↪ {t('chat_route_suggest')} {m.route}
-                  </Text>
+                  <Pressable
+                    style={styles.routeBtn}
+                    onPress={() => {
+                      if (m.routeId) {
+                        router.push({ pathname: '/chat', params: { assistantId: m.routeId, name: m.route } });
+                      }
+                    }}
+                  >
+                    <Text style={styles.routeBtnText}>{t('chat_go_to')} {m.route}</Text>
+                    <Ionicons name="arrow-back" size={16} color="#3a2e08" />
+                  </Pressable>
                 ) : null}
                 {m.subscribe ? (
                   <Pressable style={styles.subBtn} onPress={() => router.push('/(tabs)/subscriptions')}>
                     <Text style={styles.subBtnText}>{t('chat_show_plans')}</Text>
                   </Pressable>
                 ) : null}
-              </View>
+              </Pressable>
             ))}
 
             {sending ? (
               <View style={[styles.msg, styles.msgBot, styles.thinkingMsg]}>
                 <ThinkingScale colors={colors} />
+                <Text style={[styles.thinkingText, { writingDirection: writingDir }]}>{t('chat_typing')}</Text>
               </View>
             ) : null}
           </ScrollView>
@@ -398,10 +427,13 @@ const makeStyles = (colors) => StyleSheet.create({
   msg: { maxWidth: '85%', paddingVertical: 11, paddingHorizontal: 14, borderRadius: 18, marginBottom: 11 },
   msgUser: { backgroundColor: colors.emerald, alignSelf: 'flex-end', borderBottomLeftRadius: 5 },
   msgBot: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignSelf: 'flex-start', borderBottomRightRadius: 5 },
-  thinkingMsg: { paddingVertical: 14, paddingHorizontal: 18 },
+  thinkingMsg: { paddingVertical: 14, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  thinkingText: { fontFamily: 'Tajawal_400Regular', fontSize: 13.5, color: colors.muted },
   msgUserText: { fontFamily: 'Tajawal_400Regular', fontSize: 15, color: '#FFFFFF', lineHeight: 26 },
   msgBotText: { fontFamily: 'Tajawal_400Regular', fontSize: 15, color: colors.textDark, lineHeight: 26 },
   routeText: { fontFamily: 'Cairo_700Bold', fontSize: 12.5, color: colors.gold, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.border, borderStyle: 'dashed' },
+  routeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.gold, borderRadius: 11, paddingVertical: 10, paddingHorizontal: 14, marginTop: 11 },
+  routeBtnText: { fontFamily: 'Cairo_700Bold', fontSize: 13.5, color: '#3a2e08' },
   subBtn: { backgroundColor: colors.gold, borderRadius: 11, paddingVertical: 9, paddingHorizontal: 16, marginTop: 11, alignSelf: 'flex-start' },
   subBtnText: { fontFamily: 'Cairo_700Bold', fontSize: 13, color: '#3a2e08' },
   inputBar: {
