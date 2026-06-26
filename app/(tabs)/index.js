@@ -150,10 +150,10 @@ function AxisCard({ axis, title, tagline, writingDir, onPress, colors, styles })
               color={colors.goldLight}
             />
           </View>
-          <Text style={[styles.cardTitle, { writingDirection: writingDir }]}>
+          <Text style={[styles.cardTitle, { writingDirection: writingDir }]} numberOfLines={2}>
             {title}
           </Text>
-          <Text style={[styles.cardTag, { writingDirection: writingDir }]}>
+          <Text style={[styles.cardTag, { writingDirection: writingDir }]} numberOfLines={2}>
             {tagline}
           </Text>
           <Animated.View
@@ -186,6 +186,8 @@ export default function HomeScreen() {
   const [query, setQuery] = useState('');
 
   const writingDir = I18nManager.isRTL ? 'rtl' : 'ltr';
+  // اسم البراند حسب اللغة: «ميزان» بالعربية، "Mizan" بالإنجليزية.
+  const brandText = lang === 'ar' ? 'ميزان' : 'Mizan';
 
   useEffect(() => {
     Animated.loop(
@@ -283,13 +285,13 @@ export default function HomeScreen() {
                 resizeMode="contain"
               />
             </View>
-            <MaskedView maskElement={<Text style={styles.brandName}>ميزان</Text>}>
+            <MaskedView maskElement={<Text style={styles.brandName}>{brandText}</Text>}>
               <LinearGradient
                 colors={['#FFFFFF', '#FBEFC6', colors.goldLight]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
               >
-                <Text style={[styles.brandName, { opacity: 0 }]}>ميزان</Text>
+                <Text style={[styles.brandName, { opacity: 0 }]}>{brandText}</Text>
               </LinearGradient>
             </MaskedView>
           </View>
