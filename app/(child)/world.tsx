@@ -14,14 +14,13 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { Image } from 'expo-image';
+import AssetImage from '../../components/AssetImage';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import PlanetCanvas from '../../components/PlanetCanvas';
 import { getStreak, type Weather } from '../../core/streaks';
 import { getGemBalance, getPetsCatalog, getWorldCatalog, buyPet, buyWorldItem } from '../../core/economy';
 import { getFamilyChallenge, type ChallengeView } from '../../core/challenge';
 import type { PetCatalogItem, WorldCatalogItem } from '../../core/supabase';
-import { resolveAsset } from '../../config/assets';
 import { theme } from '../../config/theme';
 
 export default function WorldScreen() {
@@ -141,7 +140,7 @@ export default function WorldScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.shopRow}>
         {pets.map((pet) => (
           <TouchableOpacity key={pet.id} style={s.shopItem} onPress={() => handleBuyPet(pet)}>
-            <Image source={resolveAsset(pet.asset_url)} style={s.shopImage} contentFit="contain" />
+            <AssetImage assetUrl={pet.asset_url} size={44} />
             <Text style={s.shopName}>{pet.name}</Text>
             <Text style={s.shopPrice}>💎 {pet.price}</Text>
           </TouchableOpacity>
@@ -153,7 +152,7 @@ export default function WorldScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.shopRow}>
         {worldItems.map((item) => (
           <TouchableOpacity key={item.id} style={s.shopItem} onPress={() => handleBuyItem(item)}>
-            <Image source={resolveAsset(item.asset_url)} style={s.shopImage} contentFit="contain" />
+            <AssetImage assetUrl={item.asset_url} size={44} />
             <Text style={s.shopName}>{item.name}</Text>
             <Text style={s.shopPrice}>💎 {item.price}</Text>
           </TouchableOpacity>
