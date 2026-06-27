@@ -1,56 +1,76 @@
 // config/assets.ts
-// خريطة ربط الأصول الفنية: تحوّل قيمة asset_url القادمة من قاعدة البيانات
-// (مثل 'assets/pets/owl_3d.png') إلى مرجع الأصل الفعلي عبر require،
-// ليُعرض بجودة عالية عبر expo-image. لا إيموجي نصّيّاً إطلاقًا.
+// معمارية الأصول المرنة (Resilient Assets Pattern).
+// لا يستورد أي ملفّ صورة ثابت عبر require — لأن require لملفّ غير موجود
+// يكسر بناء Metro. بدلًا من ذلك: نخزّن مسارات الأصول كنصّ فقط، ويقرّر
+// كل مكوّن بصريّ كيف يعرض البديل المتدرّج عند غياب الأصل.
 //
-// عند إضافة أصل فني جديد: ضع الملفّ في assets/، وأضف سطر ربط هنا،
-// واستخدم نفس المسار في قاعدة البيانات. الكود لا يتغيّر بعدها.
+// عند توفّر الأصول لاحقًا: نضيف خريطة require هنا (داخل try/catch)
+// ونعيد بناء التطبيق — دون أي تغيير في المكوّنات.
 
 import type { ImageSourcePropType } from 'react-native';
 
-// خريطة المسار (كما في DB) -> مرجع الأصل المحلّي.
-// ملاحظة: مسارات require ثابتة وقت الترجمة (متطلّب Metro)،
-// لذا نعدّدها صراحةً بدل بناء المسار ديناميكيًّا.
-const ASSET_MAP: Record<string, ImageSourcePropType> = {
-  // الحيوانات الأليفة
-  'assets/pets/rabbit_3d.png': require('../assets/pets/rabbit_3d.png'),
-  'assets/pets/cat_3d.png': require('../assets/pets/cat_3d.png'),
-  'assets/pets/dragon_3d.png': require('../assets/pets/dragon_3d.png'),
-  'assets/pets/owl_3d.png': require('../assets/pets/owl_3d.png'),
-
-  // مقتنيات الكوكب
-  'assets/world/tree_3d.png': require('../assets/world/tree_3d.png'),
-  'assets/world/garden_3d.png': require('../assets/world/garden_3d.png'),
-  'assets/world/house_3d.png': require('../assets/world/house_3d.png'),
-  'assets/world/fountain_3d.png': require('../assets/world/fountain_3d.png'),
-  'assets/world/spaceship_3d.png': require('../assets/world/spaceship_3d.png'),
-};
-
-// أصل بديل عند غياب الأصل المطلوب (يمنع الانهيار).
-const FALLBACK_ASSET: ImageSourcePropType = require('../assets/icon.png');
+// هل يوجد أصل فعلي مسجّل لهذا المسار؟ حاليًّا لا أصول مسجّلة،
+// فكل الطلبات تعود null ويعرض المكوّن البديل المتدرّج.
+//
+// مستقبلًا (عند جاهزية الصور) تُملأ هذه الخريطة هكذا:
+//   const REGISTERED: Record<string, ImageSourcePropType> = {
+//     'assets/pets/owl_3d.png': require('../assets/pets/owl_3d.png'),
+//   };
+const REGISTERED: Record<string, ImageSourcePropType> = {};
 
 /**
- * تُرجع مرجع الأصل الفني لمسار قادم من قاعدة البيانات.
- * إن كان المسار رابطًا خارجيًّا (http) تُرجعه ككائن uri لـexpo-image.
- * إن لم يوجد الأصl محليًّا، تُرجع الأصل البديل (لا انهيار).
+ * يُرجع مصدر الصورة الفعلي إن كان الأصل مسجّلًا، وإلّا null.
+ * المكوّنات تتعامل مع null بعرض بديل متدرّج (لا انهيار).
  */
-export function resolveAsset(
-  assetUrl: string | null | undefined
-): ImageSourcePropType {
-  if (!assetUrl) return FALLBACK_ASSET;
+export function resolveAsset(assetUrl: string | null | undefined): ImageSourcePropType | null {
+  if (!assetUrl) return null;
 
-  // رابط خارجي (URL): expo-image يقبل { uri }.
+  // أصل مُسجّل محليًّا (require) — حين تُضاف الصور لاحقًا.
+  if (REGISTERED[assetUrl]) return REGISTERED[assetUrl];
+
+  // رابط شبكي (http/https) — يُعرض مباشرة عبر {uri}.
   if (assetUrl.startsWith('http://') || assetUrl.startsWith('https://')) {
     return { uri: assetUrl };
   }
 
-  // أصل محلّي معرّف في الخريطة.
-  return ASSET_MAP[assetUrl] ?? FALLBACK_ASSET;
+  // لا أصل متاح — المكوّن سيعرض البديل المتدرّج.
+  return null;
 }
 
 /**
- * تتحقّق هل المسار يشير لأصل محلّي معرّف (مفيد للتشخيص).
+ * هل يملك هذا الأصل مصدرًا فعليًّا للعرض؟
+ * يستخدمه المكوّن ليقرّر: صورة حقيقية أم بديل متدرّج.
  */
-export function hasLocalAsset(assetUrl: string | null | undefined): boolean {
-  return !!assetUrl && assetUrl in ASSET_MAP;
+export function hasAsset(assetUrl: string | null | undefined): boolean {
+  return resolveAsset(assetUrl) !== null;
+}
+
+/**
+ * لون بديل ثابت مشتقّ من اسم الأصل (ليبدو كل عنصر مميّزًا حتّى دون صورة).
+ * يولّد لونًا من هوية التطبيق بناءً على نصّ الاسم.
+ */
+const PLACEHOLDER_PALETTE = [
+  ['#FF9F1C', '#F57C00'],
+  ['#FFB627', '#FF9F1C'],
+  ['#FFCA3A', '#FFB627'],
+  ['#FF7B00', '#F57C00'],
+  ['#FFD56B', '#FFCA3A'],
+];
+
+export function placeholderColors(seed: string | null | undefined): [string, string] {
+  const s = seed ?? '';
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  const pair = PLACEHOLDER_PALETTE[hash % PLACEHOLDER_PALETTE.length];
+  return [pair[0], pair[1]];
+}
+
+/**
+ * تسمية مختصرة للبديل (أوّل كلمة من اسم الأصل، أو نصّ افتراضي).
+ */
+export function placeholderLabel(assetUrl: string | null | undefined): string {
+  if (!assetUrl) return '◆';
+  const file = assetUrl.split('/').pop() ?? '';
+  const name = file.replace(/\.[^.]+$/, '').replace(/_3d$/, '').replace(/_/g, ' ');
+  return name || '◆';
 }
