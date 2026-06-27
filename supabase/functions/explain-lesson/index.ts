@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 // نموذج Claude (سريع واقتصادي ومناسب للأطفال).
-const AI_MODEL = Deno.env.get('AI_MODEL') || 'claude-3-5-haiku-20241022';
+const AI_MODEL = Deno.env.get('AI_MODEL') || 'claude-haiku-4-5';
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
