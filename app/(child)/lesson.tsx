@@ -23,6 +23,7 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
+import YoutubeIframe from 'react-native-youtube-iframe';
 import Hakeem from '../../components/Hakeem';
 import { supabase } from '../../core/supabase';
 import type { Lesson, Child } from '../../core/supabase';
@@ -129,12 +130,18 @@ export default function LessonScreen() {
     return () => clearTimeout(t);
   }, [messages, thinking, complete]);
 
-  // ===== إيقاف الصوت والتعرّف عند مغادرة الشاشة =====
-  useEffect(() => {
+  // ===== جلب فيديو يوتيوب مناسب لعنوان الدرس =====
   useEffect(() => {
     if (!lesson?.title) return;
-    supabase.functions.invoke("youtube-search", { body: { query: lesson.title } }).then(({ data }) => { if (data?.videoId) setVideoId(data.videoId); });
+    supabase.functions
+      .invoke('youtube-search', { body: { query: lesson.title } })
+      .then(({ data }) => {
+        if (data?.videoId) setVideoId(data.videoId);
+      });
   }, [lesson?.title]);
+
+  // ===== إيقاف الصوت والتعرّف عند مغادرة الشاشة =====
+  useEffect(() => {
     return () => {
       try {
         Speech.stop();
@@ -546,4 +553,3 @@ const s = StyleSheet.create({
   },
   rewardBtnText: { fontFamily: theme.fonts.headingMed, fontSize: 16, color: theme.colors.white },
 });
-import YoutubeIframe from 'react-native-youtube-iframe';
