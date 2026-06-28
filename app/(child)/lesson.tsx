@@ -1,7 +1,9 @@
 // app/(child)/lesson.tsx
-// شاشة الحوار الحيّ: محادثة متعدّدة الجولات بين الطفل وحكيم.
-// حكيم يبدأ بالشرح، ينطق ردّه صوتيًّا، يحاور ويكيّف حسب عمر الطفل،
-// ولا يقول «صح/خطأ» أبدًا. حين يُتقن الطفل الدرس، تظهر دعوة للّعب والمكافأة.
+// غرفة صوتية حيّة: أهمّ شاشة في التطبيق. الطفل في الصفّ الأول (٦ سنوات)
+// لا يكتب ولا يلمس لوحة مفاتيح — كل التفاعل بالصوت واللمس فقط.
+// حكيم في المنتصف بهالة نابضة بلون المادّة، ينطق ردّه (expo-speech)
+// ويظهر النصّ حرفًا حرفًا، ثم يستمع تلقائيًّا (expo-speech-recognition).
+// لا TextInput ولا لوحة مفاتيح ولا زرّ إرسال نصّي أبدًا.
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -11,9 +13,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
+  Animated,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +24,7 @@ import {
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import YoutubeIframe from 'react-native-youtube-iframe';
-import Hakeem from '../../components/Hakeem';
+import Hakeem, { type HakeemMood } from '../../components/Hakeem';
 import { supabase } from '../../core/supabase';
 import type { Lesson, Child } from '../../core/supabase';
 import { tutorChat, type HakeemTurn } from '../../core/ai';
@@ -34,6 +34,43 @@ import { theme } from '../../config/theme';
 // دور افتتاحي يبذر المحادثة بدور «طفل» حتى يبدأ سجلّ المحادثة بطلب الطفل
 // (واجهة الرسائل ترفض أن يبدأ السجلّ بدور المساعد).
 const OPENER: HakeemTurn = { role: 'child', text: 'ابدأ الدرس معي يا حكيم!' };
+
+// لون الهالة حسب المادّة (هوية بصرية تميّز كل حكيم).
+const SUBJECT_COLORS: Record<string, string> = {
+  math: '#FF9F1C',
+  science: '#10B981',
+  english: '#3B82F6',
+  arabic: '#8B5CF6',
+  calligraphy: '#0EA5E9',
+  creative: '#EC4899',
+};
+
+// ===== مؤشّر الاستماع: أمواج صوتية متحرّكة (equalizer) =====
+function ListeningWave({ color }: { color: string }) {
+  const bars = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0.35))).current;
+  useEffect(() => {
+    const loops = bars.map((b, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(b, { toValue: 1, duration: 380, delay: i * 110, useNativeDriver: true }),
+          Animated.timing(b, { toValue: 0.35, duration: 380, useNativeDriver: true }),
+        ])
+      )
+    );
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [bars]);
+  return (
+    <View style={s.wave}>
+      {bars.map((b, i) => (
+        <Animated.View
+          key={i}
+          style={[s.waveBar, { backgroundColor: color, transform: [{ scaleY: b }] }]}
+        />
+      ))}
+    </View>
+  );
+}
 
 export default function LessonScreen() {
   const router = useRouter();
@@ -46,37 +83,96 @@ export default function LessonScreen() {
 
   const [loading, setLoading] = useState(true);
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [messages, setMessages] = useState<HakeemTurn[]>([]);
+  const [hakeemText, setHakeemText] = useState(''); // ردّ حكيم الكامل الحالي
+  const [typed, setTyped] = useState(''); // الجزء الظاهر تدريجيًّا (typewriter)
   const [chips, setChips] = useState<string[]>([]);
   const [videoId, setVideoId] = useState<string | null>(null);
-  const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [listening, setListening] = useState(false);
-  const [micNote, setMicNote] = useState('');
   const [complete, setComplete] = useState(false);
-  const [fontScale, setFontScale] = useState(1.1);
+  const [fontScale, setFontScale] = useState(1.18);
 
-  // سياق الدرس وعمر الطفل (يُملأ بعد الجلب، ويُستخدم في كل جولة).
+  // سياق الدرس وعمر الطفل (يُملأ بعد الجلب، يُستخدم في كل جولة).
   const ctx = useRef({ subject: 'math', title: '', content: '', tone: '', gradeOrder: 1, name: 'صديقي' });
+  // سجلّ المحادثة الكامل (يُرسل كـ history لـ tutorChat). لا يُعرض كاملًا.
+  const messagesRef = useRef<HakeemTurn[]>([OPENER]);
+  // آخر نصّ سمعه حكيم من الطفل قبل إرساله.
+  const heardRef = useRef('');
+  // مرجع ثابت لأحدث نسخة من send (تستدعيه أحداث التعرّف الصوتي).
+  const sendRef = useRef<(t: string) => void>(() => {});
   const scrollRef = useRef<ScrollView>(null);
 
-  // ===== النطق الصوتي (TTS) =====
-  const speak = useCallback((text: string) => {
-    if (!text) return;
+  const haloColor = SUBJECT_COLORS[subject || 'math'] || SUBJECT_COLORS.math;
+
+  // ===== هالة نابضة حول حكيم =====
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const haloScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });
+  const haloOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.12] });
+
+  // ===== التعرّف على الكلام (يبدأ تلقائيًّا بعد كلام حكيم) =====
+  const startListening = useCallback(async () => {
+    if (complete) return;
     try {
-      Speech.stop();
-      Speech.speak(text, {
-        language: 'ar',
-        onStart: () => setSpeaking(true),
-        onDone: () => setSpeaking(false),
-        onStopped: () => setSpeaking(false),
-        onError: () => setSpeaking(false),
+      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm.granted) {
+        setListening(false);
+        return; // البطاقات تبقى بديلًا دائمًا.
+      }
+      heardRef.current = '';
+      ExpoSpeechRecognitionModule.start({
+        lang: 'ar-SA',
+        interimResults: true,
+        continuous: false,
       });
+      setListening(true);
     } catch {
-      setSpeaking(false);
+      setListening(false); // البطاقات تبقى بديلًا دائمًا.
     }
+  }, [complete]);
+
+  const stopListening = useCallback(() => {
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // نتجاهل بصمت.
+    }
+    setListening(false);
   }, []);
+
+  // ===== النطق الصوتي (TTS) ثمّ الاستماع التلقائي =====
+  const speak = useCallback(
+    (text: string, autoListen: boolean) => {
+      if (!text) return;
+      try {
+        Speech.stop();
+        Speech.speak(text, {
+          language: 'ar',
+          onStart: () => setSpeaking(true),
+          onDone: () => {
+            setSpeaking(false);
+            if (autoListen) startListening();
+          },
+          onStopped: () => setSpeaking(false),
+          onError: () => setSpeaking(false),
+        });
+      } catch {
+        setSpeaking(false);
+        if (autoListen) startListening();
+      }
+    },
+    [startListening]
+  );
 
   const stopSpeaking = useCallback(() => {
     try {
@@ -87,52 +183,93 @@ export default function LessonScreen() {
     setSpeaking(false);
   }, []);
 
-  // ===== التعرّف على الكلام (اختياري) =====
+  // ===== إرسال ردّ الطفل (صوتًا أو بطاقة) =====
+  const send = useCallback(
+    async (text: string) => {
+      const msg = text.trim();
+      if (!msg || thinking || complete) return;
+
+      stopListening();
+      stopSpeaking();
+
+      // لقطة السجلّ قبل إضافة ردّ الطفل (تُرسل كـ history).
+      const history = messagesRef.current;
+      messagesRef.current = [...history, { role: 'child', text: msg }];
+      setChips([]);
+      setThinking(true);
+
+      const res = await tutorChat({
+        subject: ctx.current.subject,
+        lessonTitle: ctx.current.title,
+        lessonContent: ctx.current.content,
+        ageTone: ctx.current.tone,
+        gradeOrder: ctx.current.gradeOrder,
+        childName: ctx.current.name,
+        history,
+        childMessage: msg,
+      });
+      setThinking(false);
+
+      if (res && res.reply) {
+        messagesRef.current = [...messagesRef.current, { role: 'hakeem', text: res.reply }];
+        setHakeemText(res.reply);
+        setChips(res.suggestChips);
+        if (res.lessonComplete) {
+          setComplete(true);
+          speak(res.reply, false);
+        } else {
+          speak(res.reply, true);
+        }
+      } else {
+        const fallback = 'صار عندي عطل بسيط يا بطل، عيد لي وش قلت؟';
+        setHakeemText(fallback);
+        speak(fallback, true);
+      }
+    },
+    [thinking, complete, stopListening, stopSpeaking, speak]
+  );
+
+  // أبقِ sendRef يشير دائمًا لأحدث نسخة (تستدعيها أحداث الصوت بأمان).
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
+
+  // ===== أحداث التعرّف الصوتي =====
   useSpeechRecognitionEvent('result', (e) => {
     const t = e.results?.[0]?.transcript;
-    if (t) setInput(t);
+    if (t) heardRef.current = t;
   });
-  useSpeechRecognitionEvent('end', () => setListening(false));
-  useSpeechRecognitionEvent('error', () => {
+  useSpeechRecognitionEvent('end', () => {
     setListening(false);
-    setMicNote('ما فهمت عليك، اكتب لي يا بطل');
+    const heard = heardRef.current.trim();
+    heardRef.current = '';
+    if (heard) sendRef.current(heard);
+  });
+  useSpeechRecognitionEvent('error', () => {
+    setListening(false); // البطاقات تبقى بديلًا دائمًا.
   });
 
-  const toggleMic = useCallback(async () => {
-    if (listening) {
-      try {
-        ExpoSpeechRecognitionModule.stop();
-      } catch {
-        // نتجاهل بصمت.
-      }
-      setListening(false);
+  // ===== تأثير الآلة الكاتبة: إظهار نصّ حكيم حرفًا حرفًا =====
+  useEffect(() => {
+    if (!hakeemText) {
+      setTyped('');
       return;
     }
-    setMicNote('');
-    try {
-      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!perm.granted) {
-        setMicNote('ما فهمت عليك، اكتب لي يا بطل');
-        return;
-      }
-      stopSpeaking();
-      ExpoSpeechRecognitionModule.start({
-        lang: 'ar-SA',
-        interimResults: true,
-        continuous: false,
-      });
-      setListening(true);
-    } catch {
-      setListening(false);
-      setMicNote('ما فهمت عليك، اكتب لي يا بطل');
-    }
-  }, [listening, stopSpeaking]);
+    setTyped('');
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setTyped(hakeemText.slice(0, i));
+      if (i >= hakeemText.length) clearInterval(id);
+    }, 38);
+    return () => clearInterval(id);
+  }, [hakeemText]);
 
-  // ===== التمرير التلقائي لآخر رسالة =====
+  // ===== التمرير التلقائي لأسفل عند تغيّر المحتوى =====
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
     return () => clearTimeout(t);
-  }, [messages, thinking, complete]);
+  }, [typed, chips, complete, videoId]);
 
   // ===== جلب فيديو يوتيوب مناسب لعنوان الدرس =====
   useEffect(() => {
@@ -179,7 +316,6 @@ export default function LessonScreen() {
 
       // جلب اسم الطفل وصفّه لتحديد النبرة وحجم الخطّ.
       let gradeOrder = 1;
-      let tone = '';
       let name = 'صديقي';
       if (childId) {
         const { data: childData } = await supabase
@@ -199,20 +335,19 @@ export default function LessonScreen() {
         }
       }
       const profile = getAgeProfile(gradeOrder);
-      tone = profile.hakeemTone;
       setFontScale(profile.fontScale);
 
       ctx.current = {
         subject: subject || 'math',
         title: ls?.title ?? 'الدرس',
         content: ls?.content_text ?? '',
-        tone,
+        tone: profile.hakeemTone,
         gradeOrder,
         name,
       };
 
-      // عرض الدور الافتتاحي ثم طلب أوّل كلام من حكيم.
-      setMessages([OPENER]);
+      // أوّل كلام من حكيم (سجلّ يبدأ بدور الطفل الافتتاحي).
+      messagesRef.current = [OPENER];
       setLoading(false);
       setThinking(true);
       const res = await tutorChat({
@@ -227,63 +362,43 @@ export default function LessonScreen() {
       });
       setThinking(false);
       if (res && res.reply) {
-        setMessages([OPENER, { role: 'hakeem', text: res.reply }]);
+        messagesRef.current = [OPENER, { role: 'hakeem', text: res.reply }];
+        setHakeemText(res.reply);
         setChips(res.suggestChips);
-        if (res.lessonComplete) setComplete(true);
-        speak(res.reply);
+        if (res.lessonComplete) {
+          setComplete(true);
+          speak(res.reply, false);
+        } else {
+          speak(res.reply, true);
+        }
       } else {
-        const fallback = 'هلا والله يا بطل! يلّا نبدأ درسنا سوا، وش عندك تبي تعرف؟';
-        setMessages([OPENER, { role: 'hakeem', text: fallback }]);
-        speak(fallback);
+        const fallback = 'هلا والله يا بطل! يلّا نبدأ درسنا سوا، وش تحب نتعلّم اليوم؟';
+        messagesRef.current = [OPENER, { role: 'hakeem', text: fallback }];
+        setHakeemText(fallback);
+        speak(fallback, true);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId, childId]);
 
-  // ===== إرسال ردّ الطفل =====
-  const send = useCallback(
-    async (text: string) => {
-      const msg = text.trim();
-      if (!msg || thinking || complete) return;
-
-      // لقطة السجلّ قبل إضافة ردّ الطفل (تُرسل كـ history).
-      const history = messages;
-      setMessages((prev) => [...prev, { role: 'child', text: msg }]);
-      setChips([]);
-      setInput('');
-      setMicNote('');
-      setThinking(true);
-
-      const res = await tutorChat({
-        subject: ctx.current.subject,
-        lessonTitle: ctx.current.title,
-        lessonContent: ctx.current.content,
-        ageTone: ctx.current.tone,
-        gradeOrder: ctx.current.gradeOrder,
-        childName: ctx.current.name,
-        history,
-        childMessage: msg,
-      });
-      setThinking(false);
-
-      if (res && res.reply) {
-        setMessages((prev) => [...prev, { role: 'hakeem', text: res.reply }]);
-        setChips(res.suggestChips);
-        if (res.lessonComplete) setComplete(true);
-        speak(res.reply);
-      } else {
-        const fallback = 'صار عندي عطل بسيط يا بطل، عيد لي وش قلت؟';
-        setMessages((prev) => [...prev, { role: 'hakeem', text: fallback }]);
-        speak(fallback);
-      }
-    },
-    [messages, thinking, complete, speak]
-  );
-
   const goToReward = useCallback(() => {
     stopSpeaking();
+    stopListening();
     router.replace({ pathname: '/(child)/reward', params: { childId } });
-  }, [router, childId, stopSpeaking]);
+  }, [router, childId, stopSpeaking, stopListening]);
+
+  // إعادة الاستماع عند لمس حكيم (بديل لمسي إن لم يبدأ الاستماع تلقائيًّا).
+  const onTapHakeem = useCallback(() => {
+    if (complete || thinking) return;
+    if (listening) {
+      stopListening();
+    } else {
+      stopSpeaking();
+      startListening();
+    }
+  }, [complete, thinking, listening, stopListening, stopSpeaking, startListening]);
+
+  const mood: HakeemMood = thinking ? 'think' : 'happy';
 
   if (loading) {
     return (
@@ -295,19 +410,13 @@ export default function LessonScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={s.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
-      {/* رأس الشاشة */}
+    <View style={s.flex}>
+      {/* رأس بسيط: رجوع + اسم حكيم */}
       <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Text style={s.backIcon}>↩</Text>
         </TouchableOpacity>
-        <Text style={s.title} numberOfLines={1}>
-          {lesson?.title ?? 'الدرس'}
-        </Text>
+        <Text style={s.headerName}>حكيم</Text>
         {speaking ? (
           <TouchableOpacity onPress={stopSpeaking} style={s.muteBtn}>
             <Text style={s.muteIcon}>🔇</Text>
@@ -317,104 +426,87 @@ export default function LessonScreen() {
         )}
       </View>
 
-      {/* منطقة الحوار */}
       <ScrollView
         ref={scrollRef}
         style={s.flex}
-        contentContainerStyle={s.chat}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
       >
-        {messages.map((m, i) =>
-          m.role === 'hakeem' ? (
-            <View key={i} style={s.hakeemRow}>
-              <Hakeem mood="happy" size={44} />
-              <View style={s.hakeemBubble}>
-                <Text style={[s.hakeemText, { fontSize: 15 * fontScale }]}>{m.text}</Text>
-              </View>
-            </View>
-          ) : (
-            <View key={i} style={s.childRow}>
-              <View style={s.childBubble}>
-                <Text style={[s.childText, { fontSize: 15 * fontScale }]}>{m.text}</Text>
-              </View>
-            </View>
-          )
+        {/* حكيم في المنتصف داخل هالة نابضة بلون المادّة */}
+        <TouchableOpacity activeOpacity={0.9} onPress={onTapHakeem} style={s.hakeemWrap}>
+          <Animated.View
+            style={[
+              s.halo,
+              {
+                backgroundColor: haloColor,
+                transform: [{ scale: haloScale }],
+                opacity: haloOpacity,
+              },
+            ]}
+          />
+          <Hakeem mood={mood} size={150} />
+        </TouchableOpacity>
+
+        {/* مؤشّر الاستماع: أمواج + نصّ صغير */}
+        {listening && (
+          <View style={s.listenRow}>
+            <ListeningWave color={haloColor} />
+            <Text style={s.listenText}>حكيم يسمعك...</Text>
+          </View>
+        )}
+
+        {/* فقاعة كلام حكيم (typewriter) */}
+        {!!typed && (
+          <View style={[s.bubble, { borderColor: haloColor }]}>
+            <Text style={[s.bubbleText, { fontSize: 17 * fontScale }]}>{typed}</Text>
+          </View>
         )}
 
         {/* مؤشّر «حكيم يفكّر...» */}
         {thinking && (
-          <View style={s.hakeemRow}>
-            <Hakeem mood="think" size={44} />
-            <View style={[s.hakeemBubble, s.thinkBubble]}>
-              <ActivityIndicator size="small" color={theme.colors.primaryDark} />
-              <Text style={s.thinkText}>حكيم يفكّر...</Text>
-            </View>
+          <View style={s.thinkRow}>
+            <ActivityIndicator size="small" color={theme.colors.primaryDark} />
+            <Text style={s.thinkText}>حكيم يفكّر...</Text>
+          </View>
+        )}
+
+        {/* مربّع فيديو يوتيوب (إن وُجد فيديو للدرس) */}
+        {videoId && (
+          <View style={s.videoBox}>
+            <YoutubeIframe videoId={videoId} height={200} width={undefined} />
           </View>
         )}
       </ScrollView>
-      {videoId && <YoutubeIframe videoId={videoId} height={200} width={undefined} />}
 
-      {/* اكتمال الدرس: احتفال + دعوة للّعب */}
+      {/* أسفل الشاشة: اكتمال الدرس أو بطاقات الاقتراحات */}
       {complete ? (
-        <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={[s.footer, { paddingBottom: insets.bottom + 14 }]}>
           <Text style={s.celebrate}>🎉 أتقنت الدرس يا بطل!</Text>
-          <TouchableOpacity style={s.rewardBtn} onPress={goToReward}>
+          <TouchableOpacity style={[s.rewardBtn, { backgroundColor: haloColor }]} onPress={goToReward}>
             <Text style={s.rewardBtnText}>العب وكسب جواهر 💎</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
-          {/* ملاحظة الميكروفون (تظهر عند تعذّر التعرّف) */}
-          {!!micNote && <Text style={s.micNote}>{micNote}</Text>}
-
-          {/* اقتراحات حكيم السريعة */}
-          {chips.length > 0 && !thinking && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.chipsRow}
-              keyboardShouldPersistTaps="handled"
-            >
+        chips.length > 0 &&
+        !thinking && (
+          <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
+            <Text style={s.chipsHint}>المس لتجاوب حكيم 👇</Text>
+            <View style={s.chipsWrap}>
               {chips.map((c, i) => (
-                <TouchableOpacity key={i} style={s.chip} onPress={() => send(c)}>
+                <TouchableOpacity
+                  key={i}
+                  style={[s.chip, { borderColor: haloColor }]}
+                  onPress={() => send(c)}
+                  activeOpacity={0.8}
+                >
                   <Text style={s.chipText}>{c}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-          )}
-
-          {/* شريط الإدخال */}
-          <View style={s.inputBar}>
-            <TouchableOpacity
-              style={[s.micBtn, listening && s.micBtnActive]}
-              onPress={toggleMic}
-            >
-              <Text style={s.micIcon}>{listening ? '⏺' : '🎤'}</Text>
-            </TouchableOpacity>
-
-            <TextInput
-              style={s.input}
-              value={input}
-              onChangeText={setInput}
-              placeholder="اكتب لحكيم..."
-              placeholderTextColor={theme.colors.textMuted}
-              textAlign="right"
-              multiline
-              onSubmitEditing={() => send(input)}
-              editable={!thinking}
-            />
-
-            <TouchableOpacity
-              style={[s.sendBtn, (!input.trim() || thinking) && s.sendBtnOff]}
-              onPress={() => send(input)}
-              disabled={!input.trim() || thinking}
-            >
-              <Text style={s.sendIcon}>➤</Text>
-            </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -441,55 +533,62 @@ const s = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   backIcon: { fontSize: 19, color: theme.colors.primaryDark },
-  title: { flex: 1, fontFamily: theme.fonts.heading, fontSize: 18, color: theme.colors.textDark },
-  muteBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  headerName: { flex: 1, fontFamily: theme.fonts.heading, fontSize: 19, color: theme.colors.textDark, textAlign: 'center' },
+  muteBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   muteIcon: { fontSize: 20 },
 
-  // الحوار
-  chat: { padding: theme.spacing.md, paddingBottom: 24, gap: 14 },
-  hakeemRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, alignSelf: 'flex-start', maxWidth: '88%' },
-  hakeemBubble: {
-    flexShrink: 1,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.lg,
-    borderBottomLeftRadius: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  hakeemText: {
-    fontFamily: theme.fonts.bodyMed,
-    color: theme.colors.white,
-    lineHeight: 26,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  thinkBubble: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: theme.colors.primaryLight },
-  thinkText: { fontFamily: theme.fonts.bodyMed, color: theme.colors.textDark, fontSize: 13 },
+  // الجسم
+  body: { alignItems: 'center', paddingHorizontal: theme.spacing.md, paddingTop: 18, gap: 18 },
 
-  childRow: { alignSelf: 'flex-end', maxWidth: '88%' },
-  childBubble: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    borderBottomRightRadius: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+  hakeemWrap: { alignItems: 'center', justifyContent: 'center', width: 220, height: 220 },
+  halo: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
   },
-  childText: {
+
+  // مؤشّر الاستماع
+  listenRow: { alignItems: 'center', gap: 8 },
+  wave: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34 },
+  waveBar: { width: 6, height: 30, borderRadius: 3 },
+  listenText: { fontFamily: theme.fonts.bodyBold, fontSize: 14, color: theme.colors.textDark },
+
+  // فقاعة الكلام
+  bubble: {
+    alignSelf: 'stretch',
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.lg,
+    borderWidth: 2.5,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+  },
+  bubbleText: {
     fontFamily: theme.fonts.bodyMed,
     color: theme.colors.textBody,
-    lineHeight: 26,
-    textAlign: 'right',
+    lineHeight: 32,
+    textAlign: 'center',
     writingDirection: 'rtl',
+  },
+
+  // التفكير
+  thinkRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  thinkText: { fontFamily: theme.fonts.bodyMed, color: theme.colors.textDark, fontSize: 14 },
+
+  // الفيديو
+  videoBox: {
+    alignSelf: 'stretch',
+    borderRadius: theme.radius.lg,
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
 
   // التذييل
@@ -497,66 +596,31 @@ const s = StyleSheet.create({
     backgroundColor: theme.colors.card,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    paddingTop: 10,
+    paddingTop: 14,
     paddingHorizontal: theme.spacing.md,
-    gap: 8,
+    gap: 12,
   },
-  micNote: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.error, textAlign: 'right' },
-
-  chipsRow: { gap: 8, paddingBottom: 2, flexDirection: 'row' },
+  chipsHint: { fontFamily: theme.fonts.bodyBold, fontSize: 13, color: theme.colors.textMuted, textAlign: 'center' },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
   chip: {
+    minHeight: 60,
+    minWidth: 130,
     backgroundColor: theme.colors.background,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primaryLight,
-    borderRadius: theme.radius.full,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  chipText: { fontFamily: theme.fonts.bodyBold, fontSize: 13, color: theme.colors.primaryDark },
-
-  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  input: {
-    flex: 1,
-    minHeight: 46,
-    maxHeight: 120,
-    backgroundColor: theme.colors.background,
+    borderWidth: 2.5,
     borderRadius: theme.radius.lg,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    fontFamily: theme.fonts.bodyMed,
-    fontSize: 15,
-    color: theme.colors.textBody,
-    writingDirection: 'rtl',
-  },
-  micBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: theme.colors.background,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  micBtnActive: { backgroundColor: theme.colors.errorBg },
-  micIcon: { fontSize: 20 },
-  sendBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendBtnOff: { backgroundColor: theme.colors.primaryLight, opacity: 0.6 },
-  sendIcon: { fontSize: 18, color: theme.colors.white, transform: [{ scaleX: -1 }] },
+  chipText: { fontFamily: theme.fonts.bodyBold, fontSize: 18, color: theme.colors.textDark, textAlign: 'center' },
 
   // الاكتمال
-  celebrate: { fontFamily: theme.fonts.heading, fontSize: 18, color: theme.colors.textDark, textAlign: 'center' },
+  celebrate: { fontFamily: theme.fonts.heading, fontSize: 19, color: theme.colors.textDark, textAlign: 'center' },
   rewardBtn: {
-    backgroundColor: theme.colors.primary,
     borderRadius: theme.radius.md,
-    padding: 16,
+    padding: 18,
     alignItems: 'center',
   },
-  rewardBtnText: { fontFamily: theme.fonts.headingMed, fontSize: 16, color: theme.colors.white },
+  rewardBtnText: { fontFamily: theme.fonts.headingMed, fontSize: 18, color: theme.colors.white },
 });

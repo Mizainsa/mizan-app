@@ -26,6 +26,7 @@ export default function LoginScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,14 +96,22 @@ export default function LoginScreen() {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <TextInput
-            style={s.input}
-            placeholder="كلمة المرور"
-            placeholderTextColor={theme.colors.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={s.passwordRow}>
+            <TextInput
+              style={[s.input, s.passwordInput]}
+              placeholder="كلمة المرور"
+              placeholderTextColor={theme.colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              style={s.eyeBtn}
+              onPress={() => setShowPassword((v) => !v)}
+            >
+              <Text style={s.eyeIcon}>{showPassword ? '👁‍🗨' : '👁'}</Text>
+            </TouchableOpacity>
+          </View>
 
           {error && <Text style={s.error}>{error}</Text>}
 
@@ -178,6 +187,25 @@ const s = StyleSheet.create({
     color: theme.colors.textBody,
     marginBottom: 14,
   },
+  passwordRow: {
+    position: 'relative',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingLeft: 48,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    left: 6,
+    top: 0,
+    bottom: 0,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyeIcon: { fontSize: 20 },
   error: {
     color: theme.colors.error,
     fontFamily: theme.fonts.bodyMed,
