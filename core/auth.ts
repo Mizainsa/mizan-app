@@ -21,7 +21,8 @@ export async function signUpParent(
   const { data, error } = await supabase.auth.signUp({ email, password });
   // سطر تشخيصي مؤقّت — يُحذف بعد معرفة سبب الخطأ.
   console.log('SIGNUP_RESULT:', JSON.stringify({ error: error?.message, user: !!data?.user }));
-  if (error) return { ok: false, error: translateError(error.message) };
+  // مؤقّت للتشخيص فقط: نعرض الخطأ الخام + رمز الحالة بدل الرسالة العامّة.
+  if (error) return { ok: false, error: error.message + ' | ' + error.status };
   if (!data.user) return { ok: false, error: 'تعذّر إنشاء الحساب' };
 
   // إنشاء سجلّ وليّ الأمر المرتبط بحساب المصادقة.
