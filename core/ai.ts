@@ -79,6 +79,7 @@ export interface HakeemReply {
  * فنمرّر الأسماء الجديدة والقديمة معًا لضمان العمل دون لبس.
  */
 export async function tutorChat(params: {
+  subject: string;
   lessonTitle: string;
   lessonContent: string;
   ageTone: string;
@@ -90,6 +91,8 @@ export async function tutorChat(params: {
   try {
     const { data, error } = await supabase.functions.invoke('tutor-chat', {
       body: {
+        // مفتاح المادّة يحدّد دستور حكيم العلمي في الدالّة.
+        subject: params.subject,
         lessonTitle: params.lessonTitle,
         // اسمان للمحتوى (الجديد + ما تقرأه الدالّة فعليًّا).
         lessonContent: params.lessonContent,

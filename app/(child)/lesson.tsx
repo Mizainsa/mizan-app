@@ -38,7 +38,11 @@ const OPENER: HakeemTurn = { role: 'child', text: 'ابدأ الدرس معي ي
 export default function LessonScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { childId, lessonId } = useLocalSearchParams<{ childId: string; lessonId: string }>();
+  const { childId, lessonId, subject } = useLocalSearchParams<{
+    childId: string;
+    lessonId: string;
+    subject: string;
+  }>();
 
   const [loading, setLoading] = useState(true);
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -54,7 +58,7 @@ export default function LessonScreen() {
   const [fontScale, setFontScale] = useState(1.1);
 
   // سياق الدرس وعمر الطفل (يُملأ بعد الجلب، ويُستخدم في كل جولة).
-  const ctx = useRef({ title: '', content: '', tone: '', gradeOrder: 1, name: 'صديقي' });
+  const ctx = useRef({ subject: 'math', title: '', content: '', tone: '', gradeOrder: 1, name: 'صديقي' });
   const scrollRef = useRef<ScrollView>(null);
 
   // ===== النطق الصوتي (TTS) =====
@@ -199,6 +203,7 @@ export default function LessonScreen() {
       setFontScale(profile.fontScale);
 
       ctx.current = {
+        subject: subject || 'math',
         title: ls?.title ?? 'الدرس',
         content: ls?.content_text ?? '',
         tone,
@@ -211,6 +216,7 @@ export default function LessonScreen() {
       setLoading(false);
       setThinking(true);
       const res = await tutorChat({
+        subject: ctx.current.subject,
         lessonTitle: ctx.current.title,
         lessonContent: ctx.current.content,
         ageTone: ctx.current.tone,
@@ -249,6 +255,7 @@ export default function LessonScreen() {
       setThinking(true);
 
       const res = await tutorChat({
+        subject: ctx.current.subject,
         lessonTitle: ctx.current.title,
         lessonContent: ctx.current.content,
         ageTone: ctx.current.tone,
