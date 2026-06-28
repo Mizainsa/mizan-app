@@ -21,7 +21,8 @@
       "expo-router",
       "expo-status-bar",
       "expo-localization",
-      "expo-font"
+      "expo-font",
+      "expo-speech-recognition"
     ],
     "extra": {
       "router": {},

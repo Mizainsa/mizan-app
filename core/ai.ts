@@ -48,6 +48,79 @@ export async function explainLesson(
   }
 }
 
+// ===== الحوار الحيّ مع حكيم (tutor-chat) =====
+
+// دور واحد في سجلّ المحادثة (حكيم أو الطفل).
+export interface HakeemTurn {
+  role: 'hakeem' | 'child';
+  text: string;
+}
+
+// ردّ حكيم المُهيكل من دالّة الخادم.
+export interface HakeemReply {
+  // ما يقوله حكيم الآن (سيُنطق صوتيًّا).
+  reply: string;
+  // تقدير فهم الطفل (دون أسلوب صح/خطأ).
+  understanding: 'good' | 'needs_review' | 'starting';
+  // المفهوم الفرعي الذي يعالجه حكيم الآن.
+  concept: string;
+  // هل أتقن الطفل الدرس فاكتمل؟
+  lessonComplete: boolean;
+  // ردود قصيرة يقترحها حكيم ليختارها الطفل بدل الكتابة.
+  suggestChips: string[];
+}
+
+/**
+ * جولة محادثة مع المعلّم الحواري «حكيم».
+ * يمرّر سجلّ المحادثة كاملًا + ردّ الطفل الأخير + سياق الدرس وعمره،
+ * ويُرجع ردّ حكيم المُهيكل. يعود null بسلاسة عند أي خلل (لا انهيار).
+ *
+ * ملاحظة توافق: دالّة الخادم تقرأ الحقول بأسماء lessonText/ageTone/childReply،
+ * فنمرّر الأسماء الجديدة والقديمة معًا لضمان العمل دون لبس.
+ */
+export async function tutorChat(params: {
+  lessonTitle: string;
+  lessonContent: string;
+  ageTone: string;
+  gradeOrder: number;
+  childName: string;
+  history: HakeemTurn[];
+  childMessage: string;
+}): Promise<HakeemReply | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('tutor-chat', {
+      body: {
+        lessonTitle: params.lessonTitle,
+        // اسمان للمحتوى (الجديد + ما تقرأه الدالّة فعليًّا).
+        lessonContent: params.lessonContent,
+        lessonText: params.lessonContent,
+        ageTone: params.ageTone,
+        gradeOrder: params.gradeOrder,
+        childName: params.childName,
+        history: params.history,
+        // اسمان لردّ الطفل (الجديد + ما تقرأه الدالّة فعليًّا).
+        childMessage: params.childMessage,
+        childReply: params.childMessage,
+      },
+    });
+    if (error || !data || data.error) return null;
+
+    return {
+      reply: typeof data.reply === 'string' ? data.reply : '',
+      understanding: ['good', 'needs_review', 'starting'].includes(data.understanding)
+        ? data.understanding
+        : 'starting',
+      concept: typeof data.concept === 'string' ? data.concept : '',
+      lessonComplete: data.lessonComplete === true,
+      suggestChips: Array.isArray(data.suggestChips)
+        ? data.suggestChips.slice(0, 3).filter((c: unknown): c is string => typeof c === 'string')
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * البحث عن فيديو تعليمي آمن (safeSearch) لموضوع الدرس.
  * تُرجع معرّف الفيديو لعرضه في مشغّل يوتيوب المضمّن.

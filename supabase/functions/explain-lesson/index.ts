@@ -25,7 +25,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // المفتاح مخزّن في السرّ OPENAI_KEY (قيمته مفتاح Anthropic).
-    const apiKey = Deno.env.get('OPENAI_KEY');
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) {
       return json({ error: 'مفتاح الذكاء غير مضبوط في الخادم' }, 500);
     }
