@@ -19,6 +19,8 @@ export async function signUpParent(
   fullName: string
 ): Promise<AuthResult> {
   const { data, error } = await supabase.auth.signUp({ email, password });
+  // سطر تشخيصي مؤقّت — يُحذف بعد معرفة سبب الخطأ.
+  console.log('SIGNUP_RESULT:', JSON.stringify({ error: error?.message, user: !!data?.user }));
   if (error) return { ok: false, error: translateError(error.message) };
   if (!data.user) return { ok: false, error: 'تعذّر إنشاء الحساب' };
 
