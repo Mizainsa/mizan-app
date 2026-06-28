@@ -1,8 +1,7 @@
 // supabase/functions/explain-lesson/index.ts
-// تستقبل نصّ الدرس، تتّصل بنموذج Claude (Anthropic)، وتُرجع:
+// تستقبل نصّ الدرس، تتّصل بنموذج Gemini 2.0 Flash، وتُرجع:
 // { explanation, keywords, question, options[4], correctIndex } بصيغة JSON.
-// بيئة: Supabase Edge Functions (Deno). يقرأ المفتاح من OPENAI_KEY
-// (اسم السرّ الحالي، وقيمته مفتاح Anthropic sk-ant-).
+// بيئة: Supabase Edge Functions (Deno). يقرأ المفتاح من GEMINI_API_KEY.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,8 +9,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// نموذج Claude (سريع واقتصادي ومناسب للأطفال).
-const AI_MODEL = Deno.env.get('AI_MODEL') || 'claude-haiku-4-5';
+// نموذج Gemini (سريع واقتصادي ومناسب للأطفال).
+const AI_MODEL = Deno.env.get('AI_MODEL') || 'gemini-2.0-flash';
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -24,8 +23,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'lessonText مطلوب' }, 400);
     }
 
-    // المفتاح مخزّن في السرّ OPENAI_KEY (قيمته مفتاح Anthropic).
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) {
       return json({ error: 'مفتاح الذكاء غير مضبوط في الخادم' }, 500);
     }
@@ -46,21 +44,20 @@ Deno.serve(async (req: Request) => {
     const userPrompt =
       'عنوان الدرس: ' + (title || '') + '\n\nنصّ الدرس:\n' + String(lessonText).slice(0, 6000);
 
-    // استدعاء Anthropic Messages API.
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    });
+    // استدعاء Gemini generateContent — المفتاح في رابط الطلب كـ query parameter.
+    const aiRes = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/' +
+        AI_MODEL + ':generateContent?key=' + apiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.7 },
+        }),
+      }
+    );
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
@@ -68,11 +65,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const aiData = await aiRes.json();
-    // ردّ Anthropic: content مصفوفة، النصّ في content[0].text.
-    const raw =
-      Array.isArray(aiData?.content) && aiData.content[0]?.text
-        ? aiData.content[0].text
-        : '{}';
+    // ردّ Gemini: النصّ في candidates[0].content.parts[0].text.
+    const raw = aiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
 
     let parsed: any;
     try {

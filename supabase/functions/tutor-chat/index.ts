@@ -1,11 +1,11 @@
 // supabase/functions/tutor-chat/index.ts
 // عقل المعلّم الحواري «حكيم». يدير محادثة تعليمية متعدّدة الجولات:
 // - يستقبل سجلّ المحادثة الكامل + ردّ الطفل الأخير + سياق الدرس وعمره.
-// - يحلّل فهم الطفل عبر Claude دون أسلوب صح/خطأ المدرسي.
+// - يحلّل فهم الطفل عبر النموذج دون أسلوب صح/خطأ المدرسي.
 // - يقرّر مسار الشرح التالي: يتقدّم إن فهم، أو يعيد بزاوية جديدة إن تردّد.
 // - يُرجع: ردّ حكيم (نصّ للنطق) + حالة الفهم + هل اكتمل الدرس.
 //
-// المفتاح في السرّ OPENAI_KEY (قيمته مفتاح Anthropic). النموذج claude-haiku-4-5.
+// المفتاح في السرّ GEMINI_API_KEY. النموذج gemini-2.0-flash.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const AI_MODEL = Deno.env.get('AI_MODEL') || 'claude-haiku-4-5';
+const AI_MODEL = Deno.env.get('AI_MODEL') || 'gemini-2.0-flash';
 
 interface Turn {
   role: 'hakeem' | 'child';
@@ -34,7 +34,7 @@ Deno.serve(async (req: Request) => {
     const history: Turn[] = Array.isArray(body.history) ? body.history : [];
     const childReply: string = body.childReply || '';
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) {
       return json({ error: 'مفتاح الذكاء غير مضبوط في الخادم' }, 500);
     }
@@ -60,35 +60,35 @@ Deno.serve(async (req: Request) => {
       'suggestChips: ردود قصيرة جدًّا (كلمة أو كلمتان) يمكن للطفل اختيارها بدل الكتابة. ' +
       'lessonComplete=true فقط حين يُتقن الطفل المفهوم الأساسي بعد حوار كافٍ.';
 
-    // بناء رسائل المحادثة من السجلّ.
-    const messages: { role: string; content: string }[] = [];
+    // بناء محتويات المحادثة من السجلّ (صيغة Gemini: role + parts[]).
+    const contents: { role: string; parts: { text: string }[] }[] = [];
     for (const turn of history) {
-      messages.push({
-        role: turn.role === 'hakeem' ? 'assistant' : 'user',
-        content: turn.text,
+      contents.push({
+        role: turn.role === 'hakeem' ? 'model' : 'user',
+        parts: [{ text: turn.text }],
       });
     }
     // ردّ الطفل الأخير (إن وُجد). إن كانت بداية الدرس، نطلب من حكيم البدء.
     if (childReply) {
-      messages.push({ role: 'user', content: childReply });
-    } else if (messages.length === 0) {
-      messages.push({ role: 'user', content: 'ابدأ الدرس معي يا حكيم!' });
+      contents.push({ role: 'user', parts: [{ text: childReply }] });
+    } else if (contents.length === 0) {
+      contents.push({ role: 'user', parts: [{ text: 'ابدأ الدرس معي يا حكيم!' }] });
     }
 
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages,
-      }),
-    });
+    // استدعاء Gemini generateContent — المفتاح في رابط الطلب كـ query parameter.
+    const aiRes = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/' +
+        AI_MODEL + ':generateContent?key=' + apiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.7 },
+        }),
+      }
+    );
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
@@ -96,10 +96,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const aiData = await aiRes.json();
-    const raw =
-      Array.isArray(aiData?.content) && aiData.content[0]?.text
-        ? aiData.content[0].text
-        : '{}';
+    // ردّ Gemini: النصّ في candidates[0].content.parts[0].text.
+    const raw = aiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
 
     let parsed: any;
     try {
