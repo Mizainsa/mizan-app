@@ -39,3 +39,6 @@ credentials.json
 # typescript
 *.tsbuildinfo
 dist/
+
+# Supabase CLI temp files
+supabase/.temp/
