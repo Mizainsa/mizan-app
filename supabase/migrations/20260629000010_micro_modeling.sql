@@ -73,10 +73,12 @@ DROP POLICY IF EXISTS "skill_mastery_select_own" ON public.skill_mastery;
 CREATE POLICY "skill_mastery_select_own" ON public.skill_mastery
   FOR SELECT USING (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
-DROP POLICY IF EXISTS "skill_mastery_insert_own" ON public.skill_mastery
+DROP POLICY IF EXISTS "skill_mastery_insert_own" ON public.skill_mastery;
+CREATE POLICY "skill_mastery_insert_own" ON public.skill_mastery
   FOR INSERT WITH CHECK (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
-DROP POLICY IF EXISTS "skill_mastery_update_own" ON public.skill_mastery
+DROP POLICY IF EXISTS "skill_mastery_update_own" ON public.skill_mastery;
+CREATE POLICY "skill_mastery_update_own" ON public.skill_mastery
   FOR UPDATE USING (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()))
   WITH CHECK (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
@@ -87,10 +89,12 @@ DROP POLICY IF EXISTS "misconceptions_select_own" ON public.misconceptions;
 CREATE POLICY "misconceptions_select_own" ON public.misconceptions
   FOR SELECT USING (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
-DROP POLICY IF EXISTS "misconceptions_insert_own" ON public.misconceptions
+DROP POLICY IF EXISTS "misconceptions_insert_own" ON public.misconceptions;
+CREATE POLICY "misconceptions_insert_own" ON public.misconceptions
   FOR INSERT WITH CHECK (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
-DROP POLICY IF EXISTS "misconceptions_update_own" ON public.misconceptions
+DROP POLICY IF EXISTS "misconceptions_update_own" ON public.misconceptions;
+CREATE POLICY "misconceptions_update_own" ON public.misconceptions
   FOR UPDATE USING (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()))
   WITH CHECK (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
@@ -101,9 +105,11 @@ DROP POLICY IF EXISTS "learning_path_select_own" ON public.learning_path;
 CREATE POLICY "learning_path_select_own" ON public.learning_path
   FOR SELECT USING (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
-DROP POLICY IF EXISTS "learning_path_insert_own" ON public.learning_path
+DROP POLICY IF EXISTS "learning_path_insert_own" ON public.learning_path;
+CREATE POLICY "learning_path_insert_own" ON public.learning_path
   FOR INSERT WITH CHECK (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
 
-DROP POLICY IF EXISTS "learning_path_update_own" ON public.learning_path
+DROP POLICY IF EXISTS "learning_path_update_own" ON public.learning_path;
+CREATE POLICY "learning_path_update_own" ON public.learning_path
   FOR UPDATE USING (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()))
   WITH CHECK (child_id IN (SELECT id FROM public.children WHERE parent_id = auth.uid()));
