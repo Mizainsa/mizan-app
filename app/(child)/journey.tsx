@@ -30,7 +30,11 @@ interface StationData {
 
 export default function JourneyScreen() {
   const router = useRouter();
-  const { childId, subject } = useLocalSearchParams<{ childId: string; subject: string }>();
+  const { childId, subjectId, subject } = useLocalSearchParams<{
+    childId: string;
+    subjectId?: string;
+    subject: string;
+  }>();
   const [stations, setStations] = useState<StationData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,12 +43,18 @@ export default function JourneyScreen() {
 
   useEffect(() => {
     (async () => {
-      // جلب الدروس الجاهزة (processed) مرتّبة.
-      const { data } = await supabase
+      // جلب الدروس الجاهزة (processed) مرتّبة، مصفّاة حسب المادّة.
+      let query = supabase
         .from('lessons')
         .select('*')
-        .eq('status', 'processed')
-        .order('created_at', { ascending: true });
+        .eq('status', 'processed');
+
+      // تصفية حسب subject_id إن وُجد (UUID)
+      if (subjectId && subjectId !== '') {
+        query = query.eq('subject_id', subjectId);
+      }
+
+      const { data } = await query.order('created_at', { ascending: true });
 
       const lessons = (data ?? []) as Lesson[];
       // أوّل درس = الحالي، الباقي مقفل (يُفتح تباعًا لاحقًا حسب التقدّم).
@@ -55,7 +65,7 @@ export default function JourneyScreen() {
       setStations(built);
       setLoading(false);
     })();
-  }, [childId]);
+  }, [childId, subjectId]);
 
   // حساب مواقع المحطّات (تعرّج جيبي).
   const positions = stations.map((_, i) => {
@@ -81,7 +91,12 @@ export default function JourneyScreen() {
     if (st.state === 'locked') return;
     router.push({
       pathname: '/(child)/lesson',
-      params: { childId, lessonId: st.lesson.id, subject: subject ?? 'math' },
+      params: {
+        childId,
+        lessonId: st.lesson.id,
+        subjectId: subjectId || '',
+        subject: subject ?? 'math',
+      },
     });
   };
 

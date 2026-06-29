@@ -51,6 +51,7 @@ export interface Subject {
   id: string;
   grade_id: string;
   name: string;
+  subject_key?: string | null; // مفتاح المادة (math, science, ...) يطابق hakeems.key
 }
 
 // «الحكماء الستة» للشاشة الرئيسية (جدول hakeems) — مصدر المواد بدل مصفوفة ثابتة.
@@ -71,6 +72,7 @@ export interface Lesson {
   file_path: string | null;
   content_text: string | null;
   status: 'pending' | 'processed';
+  part_number?: number | null; // رقم جزء الكتاب
   created_at: string;
 }
 
@@ -111,6 +113,52 @@ export interface FamilyChallenge {
   status: 'active' | 'completed';
   starts_at: string;
   ends_at: string | null;
+}
+
+export interface Semester {
+  id: string;
+  year_label: string;
+  term_number: number;
+  term_name: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  part_number: number | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface SkillMastery {
+  id: string;
+  child_id: string;
+  micro_concept: string;
+  subject: string;
+  mastery_score: number;
+  attempts: number;
+  last_reviewed: string | null;
+  status: 'not_started' | 'fragile' | 'mastered';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Misconception {
+  id: string;
+  child_id: string;
+  micro_concept: string;
+  error_pattern: string;
+  detected_at: string;
+  resolved: boolean;
+  resolution_date: string | null;
+  created_at: string;
+}
+
+export interface LearningPath {
+  id: string;
+  child_id: string;
+  subject: string;
+  ordered_concepts: unknown; // JSONB
+  current_position: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // ===== إنشاء العميل =====

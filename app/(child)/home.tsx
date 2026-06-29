@@ -1,6 +1,6 @@
 // app/(child)/home.tsx
 // شاشة «الرئيسية» — اختيار الحكيم (المادّة). ستّة حكماء، لكلٍّ لونه وهويّته.
-// النقر على بطاقة حكيم يفتح رحلة تلك المادّة (يمرّر subject عبر كل الشاشات).
+// النقر على بطاقة حكيم يفتح رحلة تلك المادّة (يمرّر subject_id UUID + subject key).
 // «الخط» بدل «القرآن» ضمن الحكماء الستة.
 
 import { useEffect, useState } from 'react';
@@ -20,26 +20,27 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import Hakeem from '../../components/Hakeem';
 import GlassCard from '../../components/GlassCard';
-import { supabase, type HakeemEntry } from '../../core/supabase';
+import { supabase, type HakeemEntry, type Child, type Subject } from '../../core/supabase';
 import { theme } from '../../config/theme';
 
-// نموذج عرض موحّد للبطاقة (يأتي من جدول hakeems في Supabase).
+// نموذج عرض موحّد للبطاقة (يدمج بيانات hakeem + subject).
 interface HakeemCard {
-  subject: string;
+  subjectId: string;    // UUID من subjects table
+  subjectKey: string;   // مفتاح المادة (math, science, ...)
   name: string;
   emoji: string;
   color: string;
 }
 
 // احتياط متدرّج: إن تعذّرت قراءة الجدول (شبكة/جلسة) لا تنهار الشاشة، بل
-// تعرض الحكماء الستة من قائمة مدمجة مطابقة للمفاتيح والألوان (فلسفة الأصول المرنة).
+// تعرض الحكماء الستة من قائمة مدمجة (فلسفة الأصول المرنة).
 const FALLBACK_HAKEEMS: HakeemCard[] = [
-  { subject: 'math', name: 'الرياضيات', emoji: '🔢', color: '#FF9F1C' },
-  { subject: 'science', name: 'العلوم', emoji: '🔬', color: '#10B981' },
-  { subject: 'english', name: 'الإنجليزية', emoji: '🔤', color: '#3B82F6' },
-  { subject: 'arabic', name: 'العربية', emoji: '📖', color: '#8B5CF6' },
-  { subject: 'calligraphy', name: 'الخط', emoji: '🖌️', color: '#0EA5E9' },
-  { subject: 'creative', name: 'الإبداع', emoji: '🎨', color: '#EC4899' },
+  { subjectId: '', subjectKey: 'math', name: 'الرياضيات', emoji: '🔢', color: '#FF9F1C' },
+  { subjectId: '', subjectKey: 'science', name: 'العلوم', emoji: '🔬', color: '#10B981' },
+  { subjectId: '', subjectKey: 'english', name: 'الإنجليزية', emoji: '🔤', color: '#3B82F6' },
+  { subjectId: '', subjectKey: 'arabic', name: 'العربية', emoji: '📖', color: '#8B5CF6' },
+  { subjectId: '', subjectKey: 'calligraphy', name: 'الخط', emoji: '🖌️', color: '#0EA5E9' },
+  { subjectId: '', subjectKey: 'creative', name: 'الإبداع', emoji: '🎨', color: '#EC4899' },
 ];
 
 export default function HomeScreen() {
@@ -48,34 +49,68 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { childId } = useLocalSearchParams<{ childId: string }>();
 
-  // الحكماء يُقرؤون من جدول hakeems؛ يبدأ بالاحتياط ريثما تصل البيانات.
   const [hakeems, setHakeems] = useState<HakeemCard[]>(FALLBACK_HAKEEMS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data, error } = await supabase
-        .from('hakeems')
-        .select('key, name_ar, color, emoji, sort_order')
-        .order('sort_order', { ascending: true });
-      if (!active) return;
-      const rows = (data as Pick<HakeemEntry, 'key' | 'name_ar' | 'color' | 'emoji' | 'sort_order'>[] | null) ?? [];
-      if (!error && rows.length > 0) {
-        setHakeems(
-          rows.map((r) => ({
-            subject: r.key,
-            name: r.name_ar,
-            color: r.color,
-            emoji: r.emoji ?? '✨',
-          }))
-        );
+      try {
+        // جلب بيانات الطفل للحصول على grade_id
+        const { data: child } = await supabase
+          .from('children')
+          .select('grade_id')
+          .eq('id', childId)
+          .single();
+
+        const gradeId = (child as Child | null)?.grade_id;
+
+        // جلب hakeems (للعرض البصري)
+        const { data: hakeemData } = await supabase
+          .from('hakeems')
+          .select('key, name_ar, color, emoji, sort_order')
+          .order('sort_order', { ascending: true });
+
+        const hakeemRows = (hakeemData as Pick<HakeemEntry, 'key' | 'name_ar' | 'color' | 'emoji'>[] | null) ?? [];
+
+        // جلب subjects المرتبطة بصف الطفل
+        let subjectRows: Pick<Subject, 'id' | 'name' | 'subject_key'>[] = [];
+        if (gradeId) {
+          const { data: subjectData } = await supabase
+            .from('subjects')
+            .select('id, name, subject_key')
+            .eq('grade_id', gradeId);
+          subjectRows = (subjectData as Pick<Subject, 'id' | 'name' | 'subject_key'>[] | null) ?? [];
+        }
+
+        if (!active) return;
+
+        // دمج hakeems مع subjects حسب subject_key
+        const merged: HakeemCard[] = [];
+        for (const h of hakeemRows) {
+          const matchedSubject = subjectRows.find(s => s.subject_key === h.key);
+          merged.push({
+            subjectId: matchedSubject?.id || '', // UUID أو فارغ للاحتياط
+            subjectKey: h.key,
+            name: h.name_ar,
+            emoji: h.emoji ?? '✨',
+            color: h.color,
+          });
+        }
+
+        if (merged.length > 0) {
+          setHakeems(merged);
+        }
+      } catch {
+        // عند الخطأ نبقي الاحتياط — الشاشة لا تنهار أبدًا
+      } finally {
+        if (active) setLoading(false);
       }
-      // عند الخطأ/الفراغ نبقي الاحتياط المعروض — الشاشة لا تنهار أبدًا.
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [childId]);
 
   // طفو ناعم لبومة حكيم في الترويسة (إحساس حيّ راقٍ ٢٠٢٦).
   const floatY = useSharedValue(0);
@@ -91,8 +126,15 @@ export default function HomeScreen() {
   }, [floatY]);
   const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: floatY.value }] }));
 
-  const openHakeem = (subject: string) => {
-    router.push({ pathname: '/(child)/journey', params: { childId, subject } });
+  const openHakeem = (h: HakeemCard) => {
+    router.push({
+      pathname: '/(child)/journey',
+      params: {
+        childId,
+        subjectId: h.subjectId,
+        subject: h.subjectKey, // احتياط للتوافق
+      },
+    });
   };
 
   return (
@@ -122,14 +164,14 @@ export default function HomeScreen() {
       <View style={s.grid}>
         {hakeems.map((h, i) => (
           <Animated.View
-            key={h.subject}
+            key={h.subjectKey}
             entering={FadeInDown.delay(i * 90).duration(520).springify().damping(14)}
             style={[s.cardWrap, { shadowColor: h.color }]}
           >
             <TouchableOpacity
               activeOpacity={0.85}
               style={[s.card, { borderColor: h.color }]}
-              onPress={() => openHakeem(h.subject)}
+              onPress={() => openHakeem(h)}
             >
               {/* تدرّج خافت بلون المادّة (إحساس زجاجيّ ٢٠٢٦) */}
               <LinearGradient

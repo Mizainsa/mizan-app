@@ -66,6 +66,7 @@ Deno.serve(async (req: Request) => {
     const lessonId: string = body.lessonId || '';
     const subject: string = body.subject || '';
     const gradeOrder: number = Number(body.gradeOrder) || 0;
+    const partNumber: number = Number(body.partNumber) || 1; // رقم الجزء
     const fileUrl: string = body.fileUrl || '';
     let text: string = body.text || '';
 
@@ -142,6 +143,7 @@ Deno.serve(async (req: Request) => {
         chunk_index: idx,
         content: chunkText,
         page_number: pageNumber,
+        part_number: partNumber, // ← رقم الجزء
         embedding,
       });
     }

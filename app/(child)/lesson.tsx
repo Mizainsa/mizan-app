@@ -116,9 +116,10 @@ function ListeningWave({ color }: { color: string }) {
 export default function LessonScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { childId, lessonId, subject } = useLocalSearchParams<{
+  const { childId, lessonId, subjectId, subject } = useLocalSearchParams<{
     childId: string;
     lessonId: string;
+    subjectId?: string;
     subject: string;
   }>();
 
