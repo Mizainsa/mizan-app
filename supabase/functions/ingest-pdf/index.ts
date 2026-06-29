@@ -73,7 +73,9 @@ Deno.serve(async (req: Request) => {
 
     const geminiKey = Deno.env.get('GEMINI_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // السرّ المضبوط في Supabase باسم SERVICE_ROLE_KEY (احتياط للاسم المحقون تلقائيًّا).
+    const serviceKey =
+      Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!geminiKey) return json({ error: 'GEMINI_API_KEY غير مضبوط في الخادم' }, 500);
     if (!supabaseUrl || !serviceKey) return json({ error: 'إعداد Supabase ناقص في الخادم' }, 500);
 

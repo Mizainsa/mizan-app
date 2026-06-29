@@ -124,6 +124,109 @@ export async function tutorChat(params: {
   }
 }
 
+// ===== المعلّم الحواري القائم على RAG (rag-tutor) =====
+// يخلف tutorChat: يسترجع مقاطع الدرس متّجهيًّا (معزولة بـ lessonId) ويبني عليها
+// ردّ حكيم. يدعم وضع الواجب (isHomework) ونصّ الفيديو (videoTranscript).
+// نفس عقد الردّ المُهيكل (HakeemReply) فتعمل بقية الواجهة دون تغيير.
+
+/**
+ * جولة محادثة مع المعلّم الحواري القائم على RAG.
+ * @param childId   معرّف الطفل (للاستمرارية/الواجب)
+ * @param lessonId  معرّف الدرس (عزل تامّ للسياق المسترجَع)
+ * @param subject   مفتاح المادّة (لون/هوية حكيم)
+ * @param gradeOrder ترتيب الصفّ (نبرة عمرية)
+ * @param childMessage آخر ما قاله الطفل
+ * @param history   سجلّ المحادثة الكامل
+ * @param isHomework إن كانت الجلسة وضع واجب (حكيم يوجّه ولا يحلّ)
+ * @param videoTranscript نصّ فيديو الدرس (اختياريّ) يُضاف للسياق
+ */
+export async function ragTutor(params: {
+  childId: string;
+  lessonId: string;
+  subject: string;
+  gradeOrder: number;
+  childMessage: string;
+  history: HakeemTurn[];
+  lessonTitle?: string;
+  ageTone?: string;
+  childName?: string;
+  isHomework?: boolean;
+  videoTranscript?: string;
+}): Promise<HakeemReply | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('rag-tutor', {
+      body: {
+        childId: params.childId,
+        lessonId: params.lessonId,
+        subject: params.subject,
+        gradeOrder: params.gradeOrder,
+        lessonTitle: params.lessonTitle ?? '',
+        ageTone: params.ageTone ?? '',
+        childName: params.childName ?? 'صديقي',
+        history: params.history,
+        // اسمان لردّ الطفل (الدالّة تقرأ childReply أو childMessage).
+        childMessage: params.childMessage,
+        childReply: params.childMessage,
+        isHomework: params.isHomework === true,
+        videoTranscript: params.videoTranscript ?? '',
+      },
+    });
+    if (error || !data || data.error) return null;
+
+    return {
+      reply: typeof data.reply === 'string' ? data.reply : '',
+      understanding: ['good', 'needs_review', 'starting'].includes(data.understanding)
+        ? data.understanding
+        : 'starting',
+      concept: typeof data.concept === 'string' ? data.concept : '',
+      lessonComplete: data.lessonComplete === true,
+      suggestChips: Array.isArray(data.suggestChips)
+        ? data.suggestChips.slice(0, 3).filter((c: unknown): c is string => typeof c === 'string')
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ===== بداية جلسة بذاكرة استمرارية (session-start) =====
+
+// نتيجة بداية الجلسة: رسالة استئناف + حالة آخر درس وواجب معلّق.
+export interface SessionStart {
+  isNew: boolean;
+  resumeMessage: string;
+  lastLessonId: string | null;
+  lastChunkIndex: number | null;
+  pendingHomework: boolean;
+  sessionSummary: string | null;
+}
+
+/**
+ * بدء جلسة تعلّم: يقرأ أين توقّف الطفل وهل عليه واجب معلّق،
+ * ويُرجع رسالة افتتاحية من حكيم. يعود null بسلاسة عند أي خلل.
+ */
+export async function sessionStart(
+  childId: string,
+  subject?: string
+): Promise<SessionStart | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('session-start', {
+      body: { childId, subject: subject ?? '' },
+    });
+    if (error || !data || data.error) return null;
+    return {
+      isNew: data.isNew === true,
+      resumeMessage: typeof data.resumeMessage === 'string' ? data.resumeMessage : '',
+      lastLessonId: data.lastLessonId ?? null,
+      lastChunkIndex: typeof data.lastChunkIndex === 'number' ? data.lastChunkIndex : null,
+      pendingHomework: data.pendingHomework === true,
+      sessionSummary: data.sessionSummary ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * البحث عن فيديو تعليمي آمن (safeSearch) لموضوع الدرس.
  * تُرجع معرّف الفيديو لعرضه في مشغّل يوتيوب المضمّن.

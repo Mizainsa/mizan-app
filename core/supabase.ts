@@ -53,6 +53,17 @@ export interface Subject {
   name: string;
 }
 
+// «الحكماء الستة» للشاشة الرئيسية (جدول hakeems) — مصدر المواد بدل مصفوفة ثابتة.
+export interface HakeemEntry {
+  id: string;
+  key: string;
+  name_ar: string;
+  color: string;
+  emoji: string | null;
+  grade: number | null;
+  sort_order: number;
+}
+
 export interface Lesson {
   id: string;
   subject_id: string;

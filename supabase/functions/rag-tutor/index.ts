@@ -59,6 +59,8 @@ Deno.serve(async (req: Request) => {
     const ageTone: string = body.ageTone || '';
     const childName: string = body.childName || 'صديقي';
     const isHomework: boolean = body.isHomework === true;
+    // نصّ فيديو الدرس (اختياريّ): إن وُجد يُضاف للسياق ليجيب حكيم من الفيديو والـPDF معًا.
+    const videoTranscript: string = typeof body.videoTranscript === 'string' ? body.videoTranscript : '';
     const history: Turn[] = Array.isArray(body.history) ? body.history : [];
     const childReply: string = body.childReply || body.childMessage || '';
 
@@ -90,6 +92,14 @@ Deno.serve(async (req: Request) => {
     } catch (_e) {
       // إن فشل الاسترجاع، نكمل بسياق فارغ (حكيم يعتمد على عنوان الدرس) بدل الانهيار.
       context = '';
+    }
+
+    // إن وُجد نصّ فيديو، نضمّه للسياق ليجمع حكيم بين الفيديو والمقاطع المسترجَعة.
+    if (videoTranscript.trim()) {
+      const vt = videoTranscript.trim().slice(0, 4000); // حدّ آمن لطول السياق
+      context = context
+        ? context + '\n\n[من الفيديو]\n' + vt
+        : '[من الفيديو]\n' + vt;
     }
 
     // ===== تعليمات النظام: شخصية حكيم + قاعدة الواجب الصارمة =====
