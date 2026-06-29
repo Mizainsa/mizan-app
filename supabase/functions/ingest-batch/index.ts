@@ -54,24 +54,23 @@ interface PageText {
   text: string;
 }
 
-// استخراج صفحات محدّدة فقط (لا تحميل كامل الكتاب)
-async function extractPageRange(fileUrl: string, startPage: number, endPage: number): Promise<{ pages: PageText[]; totalPages: number }> {
-  const { extractText, getDocumentProxy } = await import('https://esm.sh/unpdf');
-  const buf = new Uint8Array(await (await fetch(fileUrl)).arrayBuffer());
-  const pdf = await getDocumentProxy(buf);
-  const totalPages = pdf.numPages;
-  const pages: PageText[] = [];
+// قراءة نطاق صفحات من الجدول المخزّن مسبقاً (بلا تحميل PDF)
+async function getPageRangeFromCache(supabase: any, jobId: string, startPage: number, endPage: number): Promise<PageText[]> {
+  const { data, error } = await supabase
+    .from('pdf_text_cache')
+    .select('page_number, page_text')
+    .eq('job_id', jobId)
+    .gte('page_number', startPage)
+    .lte('page_number', endPage)
+    .order('page_number', { ascending: true });
 
-  const actualEnd = Math.min(endPage, totalPages);
-  for (let p = startPage; p <= actualEnd; p++) {
-    const pageResult = await extractText(pdf, { mergePages: false, pages: [p] });
-    const pageText = Array.isArray(pageResult.text)
-      ? pageResult.text.join('\n')
-      : String(pageResult.text || '');
-    pages.push({ pageNumber: p, text: pageText });
-  }
+  if (error) throw new Error(`فشل قراءة النصّ من الذاكرة المؤقتة: ${error.message}`);
+  if (!data || data.length === 0) throw new Error('لا يوجد نصّ مخزّن لهذا النطاق');
 
-  return { pages, totalPages };
+  return data.map((row: any) => ({
+    pageNumber: row.page_number,
+    text: row.page_text,
+  }));
 }
 
 interface DetectedLesson {
@@ -214,19 +213,12 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[Job ${job.id}] معالجة: ${job.file_path}`);
 
-    const fileUrl = `${supabaseUrl}/storage/v1/object/public/${job.file_path}`;
-
-    // الخطوة ١: حساب عدد الصفحات (أول لمسة فقط)
-    if (job.total_pages === null) {
-      console.log('[Job] حساب عدد الصفحات...');
-      const { totalPages } = await extractPageRange(fileUrl, 1, 1);
-      await supabase
-        .from('ingestion_jobs')
-        .update({ total_pages: totalPages, status: 'processing' })
-        .eq('id', job.id);
-      job.total_pages = totalPages;
-      job.status = 'processing';
-      console.log(`[Job] إجمالي الصفحات: ${totalPages}`);
+    // التحقّق من استخراج النصّ مسبقاً
+    if (!job.total_pages) {
+      return new Response(
+        JSON.stringify({ error: 'يجب استخراج نصّ الكتاب أولاً (text_extracted=false)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // الخطوة ٢: تحديد نطاق الدفعة
@@ -243,8 +235,8 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[Job] معالجة الصفحات ${from}-${to}`);
 
-    // الخطوة ٣: استخراج صفحات الدفعة فقط
-    const { pages } = await extractPageRange(fileUrl, from, to);
+    // الخطوة ٣: قراءة صفحات الدفعة من الذاكرة المؤقتة
+    const pages = await getPageRangeFromCache(supabase, job.id, from, to);
 
     // الخطوة ٤: كشف الدروس في هذه الدفعة
     const currentChapter = {
