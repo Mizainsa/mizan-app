@@ -43,7 +43,7 @@ export default function JourneyScreen() {
 
   useEffect(() => {
     (async () => {
-      // جلب الدروس الجاهزة (processed) مرتّبة، مصفّاة حسب المادّة.
+      // جلب الدروس الجاهزة (processed) مرتّبة حسب part_number ثم lesson_order، مصفّاة حسب المادّة.
       let query = supabase
         .from('lessons')
         .select('*')
@@ -54,7 +54,9 @@ export default function JourneyScreen() {
         query = query.eq('subject_id', subjectId);
       }
 
-      const { data } = await query.order('created_at', { ascending: true });
+      const { data } = await query
+        .order('part_number', { ascending: true, nullsFirst: false })
+        .order('lesson_order', { ascending: true, nullsFirst: false });
 
       const lessons = (data ?? []) as Lesson[];
       // أوّل درس = الحالي، الباقي مقفل (يُفتح تباعًا لاحقًا حسب التقدّم).

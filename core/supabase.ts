@@ -72,7 +72,14 @@ export interface Lesson {
   file_path: string | null;
   content_text: string | null;
   status: 'pending' | 'processed';
-  part_number?: number | null; // رقم جزء الكتاب
+  part_number?: number | null; // رقم جزء الكتاب (1، 2، ...)
+  lesson_order?: number | null; // ترتيب الدرس في الكتاب (عبر جميع الفصول)
+  chapter_number?: number | null; // رقم الفصل (الوحدة)
+  chapter_title?: string | null; // عنوان الفصل
+  lesson_type?: 'lesson' | 'test_mid' | 'test_chapter' | 'test_cumulative' | 'intro'; // نوع العنصر
+  page_start?: number | null; // صفحة البداية
+  page_end?: number | null; // صفحة النهاية
+  grade_id?: string | null; // ربط بالصف الدراسي
   created_at: string;
 }
 
