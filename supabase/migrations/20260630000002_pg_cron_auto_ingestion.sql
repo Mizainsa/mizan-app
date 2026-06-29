@@ -5,8 +5,13 @@
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- حذف المهمّة السابقة إن وُجدت
-SELECT cron.unschedule('auto-ingest-batch');
+-- حذف المهمّة السابقة إن وُجدت (آمن — لا يفشل إن لم تكن موجودة)
+DO $$
+BEGIN
+  PERFORM cron.unschedule('auto-ingest-batch');
+EXCEPTION
+  WHEN OTHERS THEN NULL;
+END $$;
 
 -- جدولة مهمّة كل دقيقة
 SELECT cron.schedule(
