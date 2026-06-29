@@ -247,8 +247,11 @@ Deno.serve(async (req: Request) => {
     const { pages } = await extractPageRange(fileUrl, from, to);
 
     // الخطوة ٤: كشف الدروس في هذه الدفعة
-    const currentChapter = { number: 0, title: '' }; // TODO: تتبّع الفصل عبر الدفعات
-    const { lessons: detectedLessons } = detectLessonsInBatch(pages, currentChapter);
+    const currentChapter = {
+      number: job.current_chapter_number || 0,
+      title: job.current_chapter_title || '',
+    };
+    const { lessons: detectedLessons, lastChapter } = detectLessonsInBatch(pages, currentChapter);
 
     let currentLessonId = job.current_lesson_id;
     let lessonsCreatedCount = 0;
@@ -329,6 +332,8 @@ Deno.serve(async (req: Request) => {
         lessons_created: (job.lessons_created || 0) + lessonsCreatedCount,
         chunks_created: (job.chunks_created || 0) + chunksCreatedCount,
         current_lesson_id: currentLessonId,
+        current_chapter_number: lastChapter.number,
+        current_chapter_title: lastChapter.title,
         status: isDone ? 'done' : 'processing',
         updated_at: new Date().toISOString(),
       })

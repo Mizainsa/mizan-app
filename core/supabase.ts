@@ -179,6 +179,9 @@ export interface IngestionJob {
   last_page_done: number;
   lessons_created: number;
   chunks_created: number;
+  current_lesson_id: string | null;
+  current_chapter_number: number | null;
+  current_chapter_title: string | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
