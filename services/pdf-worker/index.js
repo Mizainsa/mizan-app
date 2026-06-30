@@ -97,34 +97,30 @@ async function convertPdfToImages(pdfPath, outDir, totalPages) {
       preserveAspectRatio: true,
     });
 
-    // Convert each page in this batch individually
+    // Convert each page in this batch individually (buffer-based to prevent image loss)
     for (let pageNum = from; pageNum <= to; pageNum++) {
       try {
         const result = await converter(pageNum, { responseType: 'buffer' });
 
-        // Rename to zero-padded format: page-001.png
+        // Write buffer directly to file with zero-padded name: page-001.png
         const nnn = String(pageNum).padStart(3, '0');
         const targetPath = path.join(outDir, `page-${nnn}.png`);
 
-        // pdf2pic creates files like "page.1.png" - find and rename
-        const files = await fsPromises.readdir(outDir);
-        const generatedFile = files.find(f =>
-          f.match(new RegExp(`page\\.${pageNum}\\.png`)) ||
-          f.match(new RegExp(`page-${pageNum}\\.png`))
-        );
-
-        if (generatedFile) {
-          await fsPromises.rename(
-            path.join(outDir, generatedFile),
-            targetPath
-          );
-        } else if (result && result.path) {
-          // If pdf2pic returned a path directly
-          await fsPromises.rename(result.path, targetPath);
+        // pdf2pic may return buffer in different fields depending on version
+        let buffer = null;
+        if (result && result.buffer) {
+          buffer = result.buffer;
+        } else if (result && result.base64) {
+          buffer = Buffer.from(result.base64, 'base64');
+        } else if (Buffer.isBuffer(result)) {
+          buffer = result;
         }
 
-        if (fs.existsSync(targetPath)) {
+        if (buffer) {
+          await fsPromises.writeFile(targetPath, buffer);
           pageFiles.push({ pageNum, path: targetPath, filename: `page-${nnn}.png` });
+        } else {
+          console.error(`  ⚠️ Page ${pageNum}: no buffer in result`);
         }
       } catch (err) {
         console.error(`  ⚠️ Failed to convert page ${pageNum}: ${err.message}`);
@@ -338,7 +334,8 @@ async function processChapter(payload, retries = 3) {
       };
     } catch (err) {
       if (attempt < retries) {
-        const delay = attempt * 2000; // 2s, 4s, 6s
+        const delays = [1000, 3000, 6000]; // 1s, 3s, 6s
+        const delay = delays[attempt - 1] || 1000;
         console.log(`  ⚠️ Attempt ${attempt} failed for chapter ${chapter_number}, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
