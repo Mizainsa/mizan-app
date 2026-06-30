@@ -314,10 +314,10 @@ Deno.serve(async (req: Request) => {
           .eq('id', currentLessonId);
       }
 
-      // إنشاء درس جديد
-      const { data: newLesson, error: insertError } = await supabase
+      // إنشاء/تحديث درس (upsert يمنع التكرار)
+      const { data: newLesson, error: insertError} = await supabase
         .from('lessons')
-        .insert({
+        .upsert({
           subject_id: job.subject_id,
           title: detected.title,
           part_number: job.part_number,
@@ -327,6 +327,9 @@ Deno.serve(async (req: Request) => {
           page_start: detected.page_start,
           page_end: null, // سيُحدّث لاحقاً
           status: 'processing',
+        }, {
+          onConflict: 'subject_id,part_number,page_start,lesson_type',
+          ignoreDuplicates: false, // نحدّث الموجود
         })
         .select('id')
         .single();
