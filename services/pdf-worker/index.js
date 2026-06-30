@@ -149,7 +149,7 @@ async function convertAndUploadPages(pdfPath, totalPages, bookSlug, jobId) {
         else if (Buffer.isBuffer(result)) buffer = result;
 
         if (!buffer) {
-          console.error(`  ⚠️ Page ${pageNum}: no buffer in result`);
+          console.error(`    ✗ Page ${pageNum}: empty buffer (conversion failed)`);
           continue;
         }
 
@@ -157,7 +157,8 @@ async function convertAndUploadPages(pdfPath, totalPages, bookSlug, jobId) {
         const filename = `page-${nnn}.png`;
 
         // (1) Upload full-quality image to Supabase Storage
-        const storagePath = `lesson_pages/${bookSlug}/${filename}`;
+        // FIXED: storagePath without 'lesson_pages/' prefix (bucket name provides it)
+        const storagePath = `${bookSlug}/${filename}`;
         const { error: uploadErr } = await supabase.storage
           .from('lesson_pages')
           .upload(storagePath, buffer, {
@@ -166,14 +167,16 @@ async function convertAndUploadPages(pdfPath, totalPages, bookSlug, jobId) {
           });
 
         if (uploadErr) {
-          console.error(`  ⚠️ Failed to upload page ${pageNum}: ${uploadErr.message}`);
+          console.error(`    ✗ Page ${pageNum} upload FAILED: ${uploadErr.message}`);
           continue;
         }
 
-        const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/lesson_pages/${storagePath}`;
+        // FIXED: imageUrl with correct path (no duplicate lesson_pages/)
+        const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/lesson_pages/${bookSlug}/${filename}`;
         uploadedPages.push({ pageNum, imageUrl });
 
-        // (2) Create compressed version for detection (kept in memory only)
+        // (2) Create compressed version for detection (only after successful upload)
+        // FIXED: moved after upload check to prevent mismatch
         const compressedBuffer = await sharp(buffer)
           .resize({ width: 600 })
           .jpeg({ quality: DETECT_JPEG_QUALITY })
@@ -181,9 +184,9 @@ async function convertAndUploadPages(pdfPath, totalPages, bookSlug, jobId) {
 
         detectionImages.push({ pageNum, buffer: compressedBuffer });
 
-        console.log(`    ✓ Page ${pageNum}: uploaded + compressed for detection`);
+        console.log(`    ✓ Page ${pageNum}: uploaded successfully + compressed for detection`);
       } catch (err) {
-        console.error(`  ⚠️ Failed to process page ${pageNum}: ${err.message}`);
+        console.error(`    ✗ Page ${pageNum} processing FAILED: ${err.message}`);
       }
     }
 
@@ -191,7 +194,16 @@ async function convertAndUploadPages(pdfPath, totalPages, bookSlug, jobId) {
     await updateJob(jobId, { pages_uploaded: uploadedPages.length });
   }
 
-  console.log(`✅ Uploaded ${uploadedPages.length}/${totalPages} pages`);
+  console.log(`✅ Upload complete: ${uploadedPages.length}/${totalPages} pages`);
+
+  // FIXED: Fail fast if no pages uploaded (prevents silent failure)
+  if (uploadedPages.length === 0) {
+    throw new Error(
+      `Upload failed: 0/${totalPages} pages uploaded. Check storage bucket configuration, ` +
+      `service_role_key permissions, and network connectivity.`
+    );
+  }
+
   return { uploadedPages, detectionImages };
 }
 
