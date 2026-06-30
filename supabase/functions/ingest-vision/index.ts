@@ -259,9 +259,24 @@ async function extractPage(
   }
 }
 
+// تنظيف عنوان الدرس من الضوضاء قبل الكتابة:
+// - يزيل رمز الدرس البادئ مثل "1-1" أو "١-١".
+// - يزيل أي رقم ملحق بنهاية العنوان (صفحة/عدد) عربيًّا (٠-٩) أو لاتينيًّا (0-9).
+// - يقلّم المسافات الزائدة (بما فيها المتكرّرة داخليًّا).
+function cleanTitle(s: string): string {
+  let t = (s || '').trim();
+  // رمز درس بادئ: أرقام - أرقام (يدعم الشرطة العاديّة والطويلة وعلامة الطرح).
+  t = t.replace(/^[\d٠-٩]+\s*[-–−]\s*[\d٠-٩]+\s*/, '');
+  // رقم ملحق بنهاية العنوان (مع المسافات المحيطة).
+  t = t.replace(/\s*[\d٠-٩]+\s*$/, '');
+  // تقليم المسافات الزائدة.
+  t = t.replace(/\s+/g, ' ').trim();
+  return t;
+}
+
 // عنوان مناسب للعنصر (درس بعنوانه، أو عنوان اختبار/تهيئة مشتقّ).
 function buildTitle(pageType: string, lessonTitle: string, chapterNumber: number | null): string {
-  const t = (lessonTitle || '').trim();
+  const t = cleanTitle(lessonTitle || '');
   switch (pageType) {
     case 'lesson':
       return t || 'درس';
