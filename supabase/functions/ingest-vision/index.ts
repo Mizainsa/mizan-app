@@ -403,39 +403,48 @@ Deno.serve(async (req: Request) => {
           .gte('page_number', item.page_start)
           .lte('page_number', item.page_end);
 
-        // (4) كتابة chunks (صفحة واحدة = chunk واحد، نقسم full_text بالتساوي إن أمكن).
-        const totalPages = item.page_end - item.page_start + 1;
+        // (4) كتابة chunks: مقطع لكل صفحة (page_start..page_end).
+        // الصفحة الأولى تحمل full_text + embedding، الباقي فارغة لكن page_image_url موجود.
         const chunkErrors: string[] = [];
         let itemChunks = 0;
 
-        // نستخدم النص الكامل كما هو (Gemini أعطانا نصاً مدمجاً)، نُدرجه لكل صفحة في النطاق.
-        // بديل: نقسم full_text إلى أجزاء متساوية (لكن النص مدمج قد لا يكون قابلاً للتقسيم بدقة).
-        // الحل الأبسط: نُدرج النص الكامل لكل صفحة (embedding نفسه)، أو نُدرجه مرة واحدة للصفحة الأولى فقط.
-        // الحل الأفضل: نُدرج chunk واحد فقط بـchunk_index=0، page_number=page_start.
-
-        try {
-          const embedding = await embed(item.full_text, geminiKey);
-          const imageUrl = buildImageUrl(storageBase, bookSlug, item.page_start);
-
-          const { error: chErr } = await supabase.from('lesson_chunks').insert({
-            lesson_id: lessonId,
-            subject: subjectId,
-            chunk_index: 0,
-            content: item.full_text,
-            page_number: item.page_start,
-            part_number: partNumber,
-            page_image_url: imageUrl,
-            embedding,
-          });
-
-          if (chErr) {
-            chunkErrors.push(`chunk: ${chErr.message}`);
-          } else {
-            itemChunks++;
-            chunksWritten++;
+        // توليد embedding مرة واحدة للنص الكامل (يُستخدم للصفحة الأولى فقط).
+        let embedding: number[] | null = null;
+        if (item.full_text.trim()) {
+          try {
+            embedding = await embed(item.full_text, geminiKey);
+          } catch (e: any) {
+            chunkErrors.push(`embedding: ${String(e?.message || e)}`);
           }
-        } catch (e: any) {
-          chunkErrors.push(`chunk: ${String(e?.message || e)}`);
+        }
+
+        // إدراج chunk لكل صفحة في النطاق.
+        for (let pageNum = item.page_start; pageNum <= item.page_end; pageNum++) {
+          const chunkIndex = pageNum - item.page_start;
+          const isFirstPage = pageNum === item.page_start;
+          const imageUrl = buildImageUrl(storageBase, bookSlug, pageNum);
+
+          try {
+            const { error: chErr } = await supabase.from('lesson_chunks').insert({
+              lesson_id: lessonId,
+              subject: subjectId,
+              chunk_index: chunkIndex,
+              content: isFirstPage ? item.full_text : '', // النص في الأولى فقط
+              page_number: pageNum,
+              part_number: partNumber,
+              page_image_url: imageUrl,
+              embedding: isFirstPage && embedding ? embedding : null, // embedding للأولى فقط
+            });
+
+            if (chErr) {
+              chunkErrors.push(`صفحة ${pageNum}: ${chErr.message}`);
+            } else {
+              itemChunks++;
+              chunksWritten++;
+            }
+          } catch (e: any) {
+            chunkErrors.push(`صفحة ${pageNum}: ${String(e?.message || e)}`);
+          }
         }
 
         itemReports.push({
