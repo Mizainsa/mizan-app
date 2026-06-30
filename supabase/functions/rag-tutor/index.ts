@@ -17,7 +17,7 @@ const corsHeaders = {
 };
 
 const CHAT_MODEL = Deno.env.get('AI_MODEL') || 'gemini-2.5-flash';
-const EMBED_MODEL = 'text-embedding-004';
+const EMBED_MODEL = 'gemini-embedding-001';
 const MATCH_COUNT = 5;
 
 interface Turn {
@@ -37,6 +37,7 @@ async function embed(text: string, apiKey: string): Promise<number[]> {
       body: JSON.stringify({
         model: 'models/' + EMBED_MODEL,
         content: { parts: [{ text }] },
+        outputDimensionality: 768,
       }),
     }
   );

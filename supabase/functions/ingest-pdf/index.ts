@@ -11,7 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const EMBED_MODEL = 'text-embedding-004';
+const EMBED_MODEL = 'gemini-embedding-001';
 const CHUNK_SIZE = 900;
 const CHUNK_OVERLAP = 150;
 const GEMINI_MODEL = 'gemini-2.0-flash-exp';
@@ -44,6 +44,7 @@ async function embed(text: string, apiKey: string): Promise<number[]> {
       body: JSON.stringify({
         model: 'models/' + EMBED_MODEL,
         content: { parts: [{ text }] },
+        outputDimensionality: 768,
       }),
     }
   );
