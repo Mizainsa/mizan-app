@@ -3,8 +3,12 @@
 // تقرأ كل صفحة (صورة PNG) من bucket التخزين العامّ lesson_pages، ترسلها منفردة
 // إلى Gemini لاستخراج النصّ العربيّ الصحيح واستنتاج بنية الصفحة، وتُرجع JSON نظيفًا.
 //
-// المسار المختبَر الآن: mode='preview' (إرجاع JSON فقط، بلا أي كتابة في القاعدة).
-// المسار mode='commit' مهيّأ لكن لا يكتب بعد — يُفعَّل بعد فحص جودة المعاينة.
+// وضعان:
+//   mode='preview' (الافتراضيّ): يعالج كامل النطاق page_from..page_to ويُرجع JSON فقط،
+//                                بلا أي كتابة في القاعدة. (المسار الذي أثبت الجودة — لم يُمَسّ.)
+//   mode='commit': يعالج دفعة صغيرة (batch_size صفحات تبدأ من page_from)، يجمعها في دروس
+//                  (القاعدة الذهبيّة: درس واحد = سطر واحد)، ويكتب lessons + lesson_chunks
+//                  مع embeddings، ثمّ يُرجع next_page للاستدعاء التالي (حلّ مهلة ١٥٠ ثانية).
 //
 // المفاتيح المطلوبة: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 
@@ -18,12 +22,17 @@ const corsHeaders = {
 
 // النموذج مثبّت صراحةً كما طُلب — الدقّة أولًا، لا مساومة.
 const VISION_MODEL = 'gemini-2.5-flash';
+// نموذج التضمين (منسوخ حرفيًّا من ingest-batch — نفس الأبعاد ٧٦٨).
+const EMBED_MODEL = 'gemini-embedding-001';
 
 // رابط التخزين العامّ الافتراضيّ (يُشتقّ من SUPABASE_URL إن توفّر).
 const FALLBACK_SUPABASE_URL = 'https://lzfgjvafmvofwjiyvelq.supabase.co';
 
-// حدّ أمان لعدد الصفحات في الطلب الواحد (يمنع الطلبات الضخمة بالخطأ).
+// حدّ أمان لعدد الصفحات في طلب المعاينة الواحد.
 const MAX_PAGES_PER_REQUEST = 200;
+// حدّ أمان لحجم الدفعة في وضع commit (يبقي الاستدعاء ضمن المهلة).
+const MAX_BATCH_SIZE = 12;
+const DEFAULT_BATCH_SIZE = 3;
 
 // أنواع الصفحات المسموحة (تُستخدم للتحقّق من ردّ Gemini).
 const ALLOWED_PAGE_TYPES = [
@@ -36,6 +45,9 @@ const ALLOWED_PAGE_TYPES = [
   'cover',
   'other',
 ];
+
+// أنواع تُكتب في جدول lessons (lesson_type). الباقي (cover/teacher/other) يُتجاهَل تمامًا.
+const WRITABLE_TYPES = ['lesson', 'intro', 'test_mid', 'test_chapter', 'test_cumulative'];
 
 // تعليمات النظام الصارمة لاستخراج بنية الصفحة (بالعربيّة، حرفيًّا كما هي مطلوبة).
 const SYSTEM_PROMPT = `أنت محلل مناهج تعليمية سعودية خبير. سأعطيك صورة صفحة واحدة من كتاب مدرسي رسمي (منهج عين). استخرج منها بدقة 100%:
@@ -59,6 +71,39 @@ interface PageResult {
   full_text?: string;
   error?: string;
   raw?: string; // نصّ Gemini الخام عند فشل التحليل (لتشخيص الجودة).
+}
+
+// عنصر قابل للكتابة (درس/اختبار/تهيئة) بعد تجميع الصفحات المتتالية.
+interface WriteItem {
+  lesson_type: string;
+  title: string;
+  chapter_number: number | null;
+  chapter_title: string;
+  page_start: number;
+  page_end: number;
+  pages: PageResult[];
+  mergeKey: string;
+}
+
+// ===== التضمين (embedding) — منسوخ حرفيًّا من ingest-batch، أبعاد ٧٦٨ =====
+async function embed(text: string, apiKey: string): Promise<number[]> {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'models/' + EMBED_MODEL,
+        content: { parts: [{ text }] },
+        outputDimensionality: 768,
+      }),
+    }
+  );
+  if (!res.ok) throw new Error('فشل توليد embedding: ' + (await res.text()));
+  const data = await res.json();
+  const values = data?.embedding?.values;
+  if (!Array.isArray(values)) throw new Error('ردّ embedding بلا قيم');
+  return values;
 }
 
 // تحويل بايتات إلى base64 على دفعات (يتجنّب تجاوز مكدّس الاستدعاء للصور الكبيرة).
@@ -101,6 +146,12 @@ function toNumberOrNull(v: unknown): number | null {
   return null;
 }
 
+// بناء رابط صورة الصفحة العامّ (page-NNN.png بثلاثة أرقام).
+function buildImageUrl(storageBase: string, bookSlug: string, pageNumber: number): string {
+  const nnn = String(pageNumber).padStart(3, '0');
+  return `${storageBase}/storage/v1/object/public/lesson_pages/${bookSlug}/page-${nnn}.png`;
+}
+
 // استخراج بنية صفحة واحدة عبر Gemini Vision.
 async function extractPage(
   pageNumber: number,
@@ -108,8 +159,7 @@ async function extractPage(
   storageBase: string,
   geminiKey: string
 ): Promise<PageResult> {
-  const nnn = String(pageNumber).padStart(3, '0');
-  const imageUrl = `${storageBase}/storage/v1/object/public/lesson_pages/${bookSlug}/page-${nnn}.png`;
+  const imageUrl = buildImageUrl(storageBase, bookSlug, pageNumber);
 
   try {
     // (١) تحميل الصورة.
@@ -209,6 +259,76 @@ async function extractPage(
   }
 }
 
+// عنوان مناسب للعنصر (درس بعنوانه، أو عنوان اختبار/تهيئة مشتقّ).
+function buildTitle(pageType: string, lessonTitle: string, chapterNumber: number | null): string {
+  const t = (lessonTitle || '').trim();
+  switch (pageType) {
+    case 'lesson':
+      return t || 'درس';
+    case 'intro':
+      return t || (chapterNumber ? `تهيئة الفصل ${chapterNumber}` : 'تهيئة');
+    case 'test_mid':
+      return 'اختبار منتصف الفصل';
+    case 'test_chapter':
+      return chapterNumber ? `اختبار الفصل ${chapterNumber}` : 'اختبار الفصل';
+    case 'test_cumulative':
+      return 'اختبار تراكمي';
+    default:
+      return t || 'عنصر';
+  }
+}
+
+// مفتاح الدمج: الدروس تُدمج بنفس lesson_title، والاختبارات/التهيئة بنفس النوع + رقم الفصل.
+function mergeKeyFor(pageType: string, lessonTitle: string, chapterNumber: number | null): string {
+  if (pageType === 'lesson') return `lesson|${(lessonTitle || '').trim()}`;
+  return `${pageType}|ch:${chapterNumber ?? 'na'}`;
+}
+
+// تجميع الصفحات المتتالية في عناصر قابلة للكتابة (القاعدة الذهبيّة: درس واحد = عنصر واحد).
+// يتجاهل cover/teacher/other. الصفحات المفقودة (التي فشل استخراجها) تكسر التتابع طبيعيًّا.
+function groupPages(okPages: PageResult[]): WriteItem[] {
+  const items: WriteItem[] = [];
+  let current: WriteItem | null = null;
+
+  const sorted = [...okPages].sort((a, b) => a.page_number - b.page_number);
+
+  for (const p of sorted) {
+    const type = p.page_type || 'other';
+    if (!WRITABLE_TYPES.includes(type)) {
+      // صفحة غير قابلة للكتابة (غلاف/معلم/أخرى) → تُنهي العنصر الجاري وتُتجاهَل.
+      current = null;
+      continue;
+    }
+
+    const key = mergeKeyFor(type, p.lesson_title || '', p.chapter_number ?? null);
+
+    if (
+      current &&
+      current.mergeKey === key &&
+      p.page_number === current.page_end + 1
+    ) {
+      // استمرار نفس العنصر على صفحة متتالية.
+      current.page_end = p.page_number;
+      current.pages.push(p);
+    } else {
+      // عنصر جديد.
+      current = {
+        lesson_type: type,
+        title: buildTitle(type, p.lesson_title || '', p.chapter_number ?? null),
+        chapter_number: p.chapter_number ?? null,
+        chapter_title: p.chapter_title || '',
+        page_start: p.page_number,
+        page_end: p.page_number,
+        pages: [p],
+        mergeKey: key,
+      };
+      items.push(current);
+    }
+  }
+
+  return items;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -225,6 +345,10 @@ Deno.serve(async (req: Request) => {
     const pageTo = toNumberOrNull(body.page_to);
     const mode: string = body.mode === 'commit' ? 'commit' : 'preview';
 
+    let batchSize = toNumberOrNull(body.batch_size) ?? DEFAULT_BATCH_SIZE;
+    if (batchSize < 1) batchSize = DEFAULT_BATCH_SIZE;
+    if (batchSize > MAX_BATCH_SIZE) batchSize = MAX_BATCH_SIZE;
+
     // ===== التحقّق من المدخلات =====
     if (!bookSlug) return json({ error: 'book_slug مطلوب' }, 400);
     if (pageFrom === null || pageTo === null) {
@@ -232,13 +356,6 @@ Deno.serve(async (req: Request) => {
     }
     if (pageFrom < 1 || pageTo < pageFrom) {
       return json({ error: 'نطاق صفحات غير صالح (page_from ≥ 1 و page_to ≥ page_from)' }, 400);
-    }
-    const totalPages = pageTo - pageFrom + 1;
-    if (totalPages > MAX_PAGES_PER_REQUEST) {
-      return json(
-        { error: `النطاق كبير جدًّا (${totalPages} صفحة). الحدّ ${MAX_PAGES_PER_REQUEST} في الطلب الواحد.` },
-        400
-      );
     }
 
     // ===== الأسرار =====
@@ -249,51 +366,214 @@ Deno.serve(async (req: Request) => {
     if (!serviceKey) return json({ error: 'SUPABASE_SERVICE_ROLE_KEY غير مضبوط في الخادم' }, 500);
 
     const storageBase = supabaseUrl.replace(/\/+$/, '');
-
-    // عميل خدميّ (service role) جاهز لمسار الكتابة (commit) لاحقًا.
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // ===== استخراج كل صفحة على حدة (فشل صفحة لا يوقف البقيّة) =====
+    // ============================================================
+    // وضع المعاينة: كامل النطاق، بلا كتابة (لم يُمَسّ منطقه المثبَت).
+    // ============================================================
+    if (mode === 'preview') {
+      const totalPages = pageTo - pageFrom + 1;
+      if (totalPages > MAX_PAGES_PER_REQUEST) {
+        return json(
+          { error: `النطاق كبير جدًّا (${totalPages} صفحة). الحدّ ${MAX_PAGES_PER_REQUEST} في المعاينة.` },
+          400
+        );
+      }
+
+      const results: PageResult[] = [];
+      for (let p = pageFrom; p <= pageTo; p++) {
+        results.push(await extractPage(p, bookSlug, storageBase, geminiKey));
+      }
+
+      const okCount = results.filter((r) => r.ok).length;
+      return json({
+        mode: 'preview',
+        committed: false,
+        summary: {
+          book_slug: bookSlug,
+          subject_id: subjectId,
+          grade_id: gradeId,
+          part_number: partNumber,
+          page_from: pageFrom,
+          page_to: pageTo,
+          total: results.length,
+          ok: okCount,
+          failed: results.length - okCount,
+        },
+        pages: results,
+      });
+    }
+
+    // ============================================================
+    // وضع الكتابة (commit): دفعة واحدة (batch_size صفحة) + كتابة + next_page.
+    // ============================================================
+    if (!subjectId) return json({ error: 'subject_id مطلوب في وضع commit' }, 400);
+    if (partNumber === null) return json({ error: 'part_number مطلوب في وضع commit' }, 400);
+
+    const batchEnd = Math.min(pageFrom + batchSize - 1, pageTo);
+    const nextPage = batchEnd < pageTo ? batchEnd + 1 : null;
+
+    // (١) استخراج صفحات الدفعة (فشل صفحة لا يوقف البقيّة).
     const results: PageResult[] = [];
-    for (let p = pageFrom; p <= pageTo; p++) {
-      const r = await extractPage(p, bookSlug, storageBase, geminiKey);
-      results.push(r);
+    for (let p = pageFrom; p <= batchEnd; p++) {
+      results.push(await extractPage(p, bookSlug, storageBase, geminiKey));
+    }
+
+    // (٢) تجميع الصفحات الناجحة في دروس/اختبارات (القاعدة الذهبيّة).
+    const okPages = results.filter((r) => r.ok);
+    const items = groupPages(okPages);
+
+    // (٣) كتابة كل عنصر: lessons (upsert/استمرار) ثمّ lesson_chunks مع embeddings.
+    let lessonsWritten = 0;
+    let chunksWritten = 0;
+    const itemReports: any[] = [];
+
+    for (const item of items) {
+      try {
+        let lessonId: string | null = null;
+
+        // (أ) استمرار درس بدأ في دفعة سابقة: نفس المادة/الجزء/النوع/العنوان وينتهي عند page_start-1.
+        const { data: prev } = await supabase
+          .from('lessons')
+          .select('id, page_end')
+          .eq('subject_id', subjectId)
+          .eq('part_number', partNumber)
+          .eq('lesson_type', item.lesson_type)
+          .eq('title', item.title)
+          .eq('page_end', item.page_start - 1)
+          .maybeSingle();
+
+        if (prev?.id) {
+          // نمدّد الدرس الموجود (يبقى سطرًا واحدًا عبر حدود الدفعات).
+          await supabase
+            .from('lessons')
+            .update({ page_end: item.page_end })
+            .eq('id', prev.id);
+          lessonId = prev.id;
+        } else {
+          // (ب) درس/اختبار جديد — upsert يمنع التكرار عند إعادة التشغيل.
+          const { data: newLesson, error: upErr } = await supabase
+            .from('lessons')
+            .upsert(
+              {
+                subject_id: subjectId,
+                title: item.title,
+                part_number: partNumber,
+                chapter_number: item.chapter_number,
+                chapter_title: item.chapter_title,
+                lesson_type: item.lesson_type,
+                lesson_order: item.page_start, // مفتاح ترتيب مستقرّ بترتيب القراءة (idempotent).
+                page_start: item.page_start,
+                page_end: item.page_end,
+                status: 'processed',
+              },
+              {
+                onConflict: 'subject_id,part_number,page_start,lesson_type',
+                ignoreDuplicates: false,
+              }
+            )
+            .select('id')
+            .single();
+
+          if (upErr || !newLesson) {
+            itemReports.push({
+              title: item.title,
+              lesson_type: item.lesson_type,
+              page_start: item.page_start,
+              page_end: item.page_end,
+              ok: false,
+              error: upErr?.message || 'فشل إنشاء الدرس (بلا بيانات)',
+            });
+            continue;
+          }
+          lessonId = newLesson.id;
+        }
+
+        lessonsWritten++;
+
+        // (ج) كتابة مقاطع الدرس (صفحة = مقطع، نصّها الكامل + صورتها + تضمينها).
+        let itemChunks = 0;
+        const chunkErrors: string[] = [];
+        for (const page of item.pages) {
+          const fullText = (page.full_text || '').trim();
+          if (!fullText) {
+            chunkErrors.push(`صفحة ${page.page_number}: نصّ فارغ — تُخطّت`);
+            continue;
+          }
+          try {
+            const embedding = await embed(fullText, geminiKey);
+            // idempotent: نحذف مقطع هذه الصفحة إن وُجد من تشغيل سابق ثمّ نُدرج.
+            await supabase
+              .from('lesson_chunks')
+              .delete()
+              .eq('lesson_id', lessonId)
+              .eq('part_number', partNumber)
+              .eq('page_number', page.page_number);
+            const { error: chErr } = await supabase.from('lesson_chunks').insert({
+              lesson_id: lessonId,
+              subject: subjectId, // العمود الفعليّ نصّ (subject) — لا يوجد subject_id في lesson_chunks.
+              chunk_index: page.page_number,
+              content: fullText,
+              page_number: page.page_number,
+              part_number: partNumber,
+              page_image_url: page.image_url,
+              embedding,
+            });
+            if (chErr) {
+              chunkErrors.push(`صفحة ${page.page_number}: ${chErr.message}`);
+            } else {
+              itemChunks++;
+              chunksWritten++;
+            }
+          } catch (e: any) {
+            chunkErrors.push(`صفحة ${page.page_number}: ${String(e?.message || e)}`);
+          }
+        }
+
+        itemReports.push({
+          title: item.title,
+          lesson_type: item.lesson_type,
+          chapter_number: item.chapter_number,
+          page_start: item.page_start,
+          page_end: item.page_end,
+          ok: true,
+          continued: !!prev?.id,
+          chunks_written: itemChunks,
+          chunk_errors: chunkErrors,
+        });
+      } catch (e: any) {
+        itemReports.push({
+          title: item.title,
+          lesson_type: item.lesson_type,
+          page_start: item.page_start,
+          page_end: item.page_end,
+          ok: false,
+          error: String(e?.message || e),
+        });
+      }
     }
 
     const okCount = results.filter((r) => r.ok).length;
-    const failCount = results.length - okCount;
-
-    const summary = {
-      book_slug: bookSlug,
-      subject_id: subjectId,
-      grade_id: gradeId,
-      part_number: partNumber,
-      page_from: pageFrom,
-      page_to: pageTo,
-      total: results.length,
-      ok: okCount,
-      failed: failCount,
-    };
-
-    // ===== mode = preview: إرجاع النتائج فقط، بلا أي كتابة =====
-    if (mode === 'preview') {
-      return json({ mode: 'preview', committed: false, summary, pages: results });
-    }
-
-    // ===== mode = commit: مهيّأ لكن غير مفعّل بعد (يُفعَّل بعد فحص جودة المعاينة) =====
-    // العميل الخدميّ (supabase) والنتائج المطبّعة جاهزة للكتابة هنا لاحقًا.
-    // لا نكتب في القاعدة الآن حفاظًا على البيانات حتى اعتماد الجودة.
-    void supabase;
-    return json(
-      {
-        mode: 'commit',
-        committed: false,
-        notice: 'الكتابة في القاعدة لم تُفعَّل بعد — راجع نتائج المعاينة واعتمد الجودة أولًا.',
-        summary,
-        pages: results,
+    return json({
+      mode: 'commit',
+      committed: true,
+      summary: {
+        book_slug: bookSlug,
+        subject_id: subjectId,
+        grade_id: gradeId,
+        part_number: partNumber,
+        batch_from: pageFrom,
+        batch_to: batchEnd,
+        pages_extracted: results.length,
+        pages_ok: okCount,
+        pages_failed: results.length - okCount,
+        lessons_written: lessonsWritten,
+        chunks_written: chunksWritten,
       },
-      200
-    );
+      next_page: nextPage, // استدعِ الدالّة ثانيةً بـ page_from=next_page حتى يصبح null.
+      items: itemReports,
+      pages: results,
+    });
   } catch (err: any) {
     return json({ error: String(err?.message || err) }, 500);
   }
