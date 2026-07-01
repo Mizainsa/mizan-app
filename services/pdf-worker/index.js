@@ -325,8 +325,8 @@ async function detectChapters(detectionImages, totalPages, jobId) {
   return allChapters;
 }
 
-// Process single chapter via ingest-vision (with retry)
-async function processChapter(payload, retries = 3) {
+// Process single chapter via ingest-vision (with retry and 503-aware backoff)
+async function processChapter(payload, retries = 4) {
   const { chapter_number, page_from, page_to } = payload;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -349,24 +349,44 @@ async function processChapter(payload, retries = 3) {
 
       const result = await response.json();
 
-      if (result.ok) {
-        console.log(`    ✅ Chapter ${chapter_number}: ${result.lessons_written} lessons, ${result.chunks_written} chunks`);
+      // FIXED: Support new contract (committed, summary) and legacy (ok, lessons_written)
+      const success = result.committed === true || result.ok === true;
+      const lessonsWritten = result.summary?.lessons_written ?? result.lessons_written ?? 0;
+      const chunksWritten = result.summary?.chunks_written ?? result.chunks_written ?? 0;
+
+      if (success && lessonsWritten > 0) {
+        console.log(`    ✅ Chapter ${chapter_number}: ${lessonsWritten} lessons, ${chunksWritten} chunks`);
         return {
           ok: true,
           chapter_number,
-          lessons_written: result.lessons_written,
-          chunks_written: result.chunks_written,
+          lessons_written: lessonsWritten,
+          chunks_written: chunksWritten,
         };
       } else {
-        throw new Error(result.error || 'Unknown error from ingest-vision');
+        const failedItems = result.items?.filter((it) => it && it.ok === false) || [];
+        const errorMsg =
+          result.error ||
+          (failedItems.length
+            ? `عناصر فشلت: ${failedItems.map((it) => it.error).join('; ')}`
+            : `لم تُكتب دروس (committed=${result.committed}, lessons=${lessonsWritten})`);
+        throw new Error(errorMsg);
       }
     } catch (err) {
       console.error(`    ⚠️ Attempt ${attempt} failed: ${err.message}`);
 
       if (attempt < retries) {
-        const delays = [1000, 3000, 6000];
-        const delay = delays[attempt - 1] || 1000;
-        console.log(`    ⏳ Retrying in ${delay}ms...`);
+        // FIXED: 503-aware backoff (Gemini overload needs longer delays)
+        const errMsg = err.message.toLowerCase();
+        const is503 =
+          errMsg.includes('503') ||
+          errMsg.includes('overload') ||
+          errMsg.includes('high demand') ||
+          errMsg.includes('unavailable');
+        const delays503 = [15000, 45000, 90000]; // 15s, 45s, 90s for Gemini overload
+        const delaysNormal = [1000, 3000, 6000]; // 1s, 3s, 6s for other errors
+        const delayArray = is503 ? delays503 : delaysNormal;
+        const delay = delayArray[attempt - 1] || (is503 ? 90000 : 6000);
+        console.log(`    ⏳ Retrying in ${delay}ms... (503: ${is503})`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         console.error(`    ❌ Chapter ${chapter_number} failed after ${retries} attempts`);
@@ -464,9 +484,9 @@ async function processBookAsync(jobId, pdfPath, meta) {
       }
     }
 
-    // (5) Check coverage (detect gaps in page ranges)
+    // (5) Check coverage: page gaps (for reference)
     const gaps = [];
-    const sortedChapters = chapters.sort((a, b) => a.page_start - b.page_start);
+    const sortedChapters = [...chapters].sort((a, b) => a.page_start - b.page_start); // FIXED: copy, no mutation
 
     for (let i = 0; i < sortedChapters.length - 1; i++) {
       const currentEnd = sortedChapters[i].page_end;
@@ -480,25 +500,95 @@ async function processBookAsync(jobId, pdfPath, meta) {
       }
     }
 
-    // (6) Final result
+    // (6) FIXED: Real DB-coverage verification (fetch written chapters from database)
+    console.log(`🔍 [Job ${jobId}] Verifying actual DB coverage...`);
+    let chaptersWrittenInDb = 0;
+    let writtenChapterNumbers = new Set();
+    let missingChapters = [];
+    let coverageComplete = false;
+
+    try {
+      const dbRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/lessons?subject_id=eq.${subject_id}&part_number=eq.${part_number}&select=chapter_number`,
+        {
+          headers: {
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+        }
+      );
+
+      if (dbRes.ok) {
+        const dbLessons = await dbRes.json();
+        chaptersWrittenInDb = dbLessons.length;
+        writtenChapterNumbers = new Set(dbLessons.map((l) => l.chapter_number));
+
+        // Find missing chapters (1..chapters.length not in DB)
+        for (let chNum = 1; chNum <= chapters.length; chNum++) {
+          if (!writtenChapterNumbers.has(chNum)) {
+            const chapterData = chapters[chNum - 1];
+            missingChapters.push({
+              chapter_number: chNum,
+              page_start: chapterData.page_start,
+              page_end: chapterData.page_end,
+              lesson_title: chapterData.lesson_title,
+            });
+          }
+        }
+
+        coverageComplete = missingChapters.length === 0;
+        console.log(`   - DB chapters written: ${chaptersWrittenInDb}`);
+        console.log(`   - Missing chapters: ${missingChapters.length}`);
+        console.log(`   - Coverage complete: ${coverageComplete}`);
+      } else {
+        console.error(`   ⚠️ Failed to fetch DB lessons: ${dbRes.status}`);
+      }
+    } catch (dbErr) {
+      console.error(`   ⚠️ DB verification error: ${dbErr.message}`);
+    }
+
+    // Store detected chapters for /complete-book endpoint
+    const detectedChapters = chapters.map((ch, idx) => ({
+      chapter_number: idx + 1,
+      page_start: ch.page_start,
+      page_end: ch.page_end,
+      lesson_title: ch.lesson_title,
+    }));
+
+    // (7) Final result with honest metrics
     const finalResult = {
       book_slug,
       total_pages: totalPages,
       pages_uploaded: uploadedPages.length,
       chapters_detected: chapters.length,
-      chapters: results,
-      gaps,
-      failed_chapters: failedChapters,
+      chapters_written_in_db: chaptersWrittenInDb,
+      coverage_complete: coverageComplete,
+      missing_chapters: missingChapters,
+      detected_chapters: detectedChapters, // Store for /complete-book
+      chapters: results, // Per-chapter attempt results
+      gaps, // Page gaps (informational)
+      failed_chapters: failedChapters, // Deprecated (use missing_chapters)
     };
 
-    console.log(`✅ [Job ${jobId}] Book processing complete: ${book_slug}`);
-    console.log(`   - Chapters processed: ${results.filter((r) => r.ok).length}/${chapters.length}`);
-    console.log(`   - Failed chapters: ${failedChapters.length}`);
-    console.log(`   - Gaps: ${gaps.length}`);
+    // (8) Honest status: done only if coverage is complete OR at least some written
+    let finalStatus = 'done';
+    if (chaptersWrittenInDb === 0) {
+      finalStatus = 'failed'; // Total failure
+    } else if (!coverageComplete) {
+      finalStatus = 'done'; // Partial success (client shows warning)
+    }
+
+    console.log(`✅ [Job ${jobId}] Book processing ${finalStatus}: ${book_slug}`);
+    console.log(`   - Chapters processed (attempts): ${results.filter((r) => r.ok).length}/${chapters.length}`);
+    console.log(`   - Chapters in DB (actual): ${chaptersWrittenInDb}/${chapters.length}`);
+    console.log(`   - Missing chapters: ${missingChapters.length}`);
+    console.log(`   - Coverage complete: ${coverageComplete}`);
+    console.log(`   - Page gaps: ${gaps.length}`);
 
     await updateJob(jobId, {
-      status: 'done',
-      current_step: 'Processing complete',
+      status: finalStatus,
+      current_step: coverageComplete ? 'Processing complete' : `Incomplete: ${missingChapters.length} chapters missing`,
+      chapters_done: chaptersWrittenInDb, // FIXED: Real DB count
       result: finalResult,
     });
   } catch (err) {
@@ -700,6 +790,149 @@ app.post('/retry', async (req, res) => {
   }
 });
 
+// POST /complete-book - Self-healing: complete missing chapters automatically
+app.post('/complete-book', async (req, res) => {
+  req.setTimeout(0);
+  res.setTimeout(0);
+
+  try {
+    const { subject_id, grade_id, part_number, book_slug } = req.body;
+
+    if (!subject_id || !grade_id || !part_number || !book_slug) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Missing required fields: subject_id, grade_id, part_number, book_slug',
+      });
+    }
+
+    console.log(`🔧 [Complete] Self-healing ${book_slug}...`);
+
+    // (1) Fetch latest job to get detected_chapters
+    const { data: latestJob, error: jobErr } = await supabase
+      .from('ingestion_jobs')
+      .select('id, result')
+      .eq('book_slug', book_slug)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (jobErr || !latestJob || !latestJob.result?.detected_chapters) {
+      return res.status(404).json({
+        ok: false,
+        error: 'No previous job found or detected_chapters missing. Run /process-book first.',
+      });
+    }
+
+    const detectedChapters = latestJob.result.detected_chapters;
+    console.log(`   - Found ${detectedChapters.length} detected chapters from job ${latestJob.id}`);
+
+    // (2) Fetch written chapters from DB
+    const dbRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/lessons?subject_id=eq.${subject_id}&part_number=eq.${part_number}&select=chapter_number`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+
+    if (!dbRes.ok) {
+      return res.status(500).json({ ok: false, error: 'Failed to fetch DB lessons' });
+    }
+
+    const dbLessons = await dbRes.json();
+    const writtenChapterNumbers = new Set(dbLessons.map((l) => l.chapter_number));
+    console.log(`   - Found ${dbLessons.length} chapters already written in DB`);
+
+    // (3) Calculate missing chapters
+    const missingChapters = detectedChapters.filter((ch) => !writtenChapterNumbers.has(ch.chapter_number));
+
+    if (missingChapters.length === 0) {
+      return res.json({
+        ok: true,
+        book_slug,
+        message: 'All chapters already complete',
+        coverage_complete: true,
+        chapters_total: detectedChapters.length,
+        chapters_written: dbLessons.length,
+        missing: [],
+      });
+    }
+
+    console.log(`   - Processing ${missingChapters.length} missing chapters...`);
+
+    // (4) Process missing chapters with 503-aware retry
+    const completed = [];
+    const stillMissing = [];
+
+    for (const chapter of missingChapters) {
+      const payload = {
+        subject_id,
+        grade_id,
+        part_number,
+        book_slug,
+        page_from: chapter.page_start,
+        page_to: chapter.page_end,
+        mode: 'commit',
+        chapter_number: chapter.chapter_number,
+      };
+
+      const result = await processChapter(payload);
+
+      if (result.ok) {
+        completed.push({
+          chapter_number: chapter.chapter_number,
+          lessons_written: result.lessons_written,
+          chunks_written: result.chunks_written,
+        });
+      } else {
+        stillMissing.push({
+          chapter_number: chapter.chapter_number,
+          page_start: chapter.page_start,
+          page_end: chapter.page_end,
+          error: result.error,
+        });
+      }
+    }
+
+    // (5) Re-verify coverage
+    const dbRes2 = await fetch(
+      `${SUPABASE_URL}/rest/v1/lessons?subject_id=eq.${subject_id}&part_number=eq.${part_number}&select=chapter_number`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+
+    let finalWritten = dbLessons.length;
+    let coverageComplete = false;
+
+    if (dbRes2.ok) {
+      const finalLessons = await dbRes2.json();
+      finalWritten = finalLessons.length;
+      coverageComplete = finalWritten === detectedChapters.length;
+    }
+
+    console.log(`✅ [Complete] Finished: ${completed.length} completed, ${stillMissing.length} still missing`);
+
+    res.json({
+      ok: true,
+      book_slug,
+      chapters_total: detectedChapters.length,
+      chapters_written: finalWritten,
+      coverage_complete: coverageComplete,
+      completed,
+      still_missing: stillMissing,
+    });
+  } catch (err) {
+    console.error('Error in /complete-book:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ═══ Start server ═══
 app.listen(PORT, () => {
   console.log(`✅ Mizan PDF Worker running on port ${PORT}`);
@@ -708,4 +941,5 @@ app.listen(PORT, () => {
   console.log(`   - Poll: GET /job/:id`);
   console.log(`   - List: GET /jobs`);
   console.log(`   - Retry: POST /retry`);
+  console.log(`   - Complete: POST /complete-book (self-healing for missing chapters)`);
 });
