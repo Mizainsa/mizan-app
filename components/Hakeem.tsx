@@ -5,6 +5,7 @@
 // Lottie لاحقًا، يُسجّل في config/assets ويُعرض دون تغيير هذا الملف.
 
 import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../config/theme';
 
@@ -48,7 +49,11 @@ export default function Hakeem({ mood = 'idle', size = 130, style }: HakeemProps
           },
         ]}
       >
-        <Text style={[styles.face, { fontSize: size * 0.34 }]}>{MOOD_FACE[mood]}</Text>
+        <Image
+          source={require('../assets/icon.png')}
+          style={{ width: size * 0.72, height: size * 0.72, borderRadius: (size * 0.72) / 2 }}
+          contentFit="contain"
+        />
         <Text style={[styles.name, { fontSize: size * 0.13 }]}>حكيم</Text>
       </LinearGradient>
     </View>
