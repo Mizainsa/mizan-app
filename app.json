@@ -19,6 +19,7 @@
     "android": {
       "package": "sa.mizan.app",
       "softwareKeyboardLayoutMode": "resize",
+      "permissions": ["android.permission.RECORD_AUDIO"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F97316"
@@ -32,7 +33,14 @@
       "expo-status-bar",
       "expo-localization",
       "expo-font",
-      "expo-speech-recognition",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "يحتاج عالم حكيم للميكروفون ليسمع صوتك يا بطل!",
+          "speechRecognitionPermission": "يحتاج عالم حكيم للتعرّف على الكلام ليفهم حديثك.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ],
       "expo-audio",
       "expo-local-authentication"
     ],

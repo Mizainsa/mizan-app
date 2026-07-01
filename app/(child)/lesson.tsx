@@ -214,8 +214,9 @@ export default function LessonScreen() {
     try {
       const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
       if (!perm.granted) {
+        console.error('[حكيم] استماع: إذن الميكروفون مرفوض');
         setListening(false);
-        return; // البطاقات تبقى بديلًا دائمًا.
+        return;
       }
       heardRef.current = '';
       ExpoSpeechRecognitionModule.start({
@@ -224,8 +225,9 @@ export default function LessonScreen() {
         continuous: false,
       });
       setListening(true);
-    } catch {
-      setListening(false); // البطاقات تبقى بديلًا دائمًا.
+    } catch (error) {
+      console.error('[حكيم] استماع:', error);
+      setListening(false);
     }
   }, [complete]);
 
@@ -303,8 +305,10 @@ export default function LessonScreen() {
         const { data, error } = await supabase.functions.invoke('tts', {
           body: { text, gender: voiceGender },
         });
-        // الدالة تُرجع صوتًا ثنائيًّا (Blob). أي شيء آخر (خطأ/نصّ) → الاحتياط.
-        if (error || !(data instanceof Blob)) throw error ?? new Error('لا يوجد صوت');
+        if (error || !(data instanceof Blob)) {
+          console.error('[حكيم] tts:', error?.message, (error as any)?.status);
+          throw error ?? new Error('لا يوجد صوت');
+        }
 
         const uri = await blobToAudioUri(data);
         try {
@@ -334,8 +338,8 @@ export default function LessonScreen() {
           }
         });
         player.play();
-      } catch {
-        // أي فشل (شبكة، مفتاح، صيغة، عدم نشر tts) → نعود لنطق الجهاز صامتًا.
+      } catch (error) {
+        console.error('[حكيم] tts:', (error as any)?.message, (error as any)?.status);
         speakWithDevice(text, autoListen);
       }
     },

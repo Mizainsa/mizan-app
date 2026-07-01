@@ -29,6 +29,7 @@ export default function SetupChildrenScreen() {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [drafts, setDrafts] = useState<DraftChild[]>([{ name: '', gradeId: null }]);
   const [saving, setSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function SetupChildrenScreen() {
   };
 
   const save = async () => {
+    if (isSubmitting || saving) return;
     setError(null);
     const valid = drafts.filter((d) => d.name.trim() && d.gradeId);
     if (valid.length === 0) {
@@ -55,12 +57,20 @@ export default function SetupChildrenScreen() {
       return;
     }
 
+    setIsSubmitting(true);
     setSaving(true);
-    for (const d of valid) {
-      await addChild({ name: d.name.trim(), gradeId: d.gradeId ?? undefined });
+    try {
+      for (const d of valid) {
+        await addChild({ name: d.name.trim(), gradeId: d.gradeId ?? undefined });
+      }
+      router.replace('/profiles');
+    } catch (err) {
+      console.error('[setup-children] حفظ:', err);
+      setError('حدث خطأ. حاول مرة أخرى');
+    } finally {
+      setSaving(false);
+      setIsSubmitting(false);
     }
-    setSaving(false);
-    router.replace('/profiles');
   };
 
   return (
@@ -104,7 +114,7 @@ export default function SetupChildrenScreen() {
 
       {error && <Text style={s.error}>{error}</Text>}
 
-      <TouchableOpacity style={s.saveBtn} onPress={save} disabled={saving}>
+      <TouchableOpacity style={s.saveBtn} onPress={save} disabled={isSubmitting || saving}>
         {saving ? (
           <ActivityIndicator color={theme.colors.white} />
         ) : (
