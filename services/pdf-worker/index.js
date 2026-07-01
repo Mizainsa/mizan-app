@@ -169,15 +169,24 @@ async function convertAndUploadPages(pdfPath, totalPages, bookSlug, jobId) {
         // (1) Upload full-quality image to Supabase Storage
         // FIXED: storagePath without 'lesson_pages/' prefix (bucket name provides it)
         const storagePath = `${bookSlug}/${filename}`;
-        const { error: uploadErr } = await supabase.storage
-          .from('lesson_pages')
-          .upload(storagePath, buffer, {
-            contentType: 'image/png',
-            upsert: true,
-          });
+        let uploadErr = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          const { error } = await supabase.storage
+            .from('lesson_pages')
+            .upload(storagePath, buffer, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+          uploadErr = error;
+          if (!error) break;
+          console.error(`    ⚠️ Page ${pageNum} upload attempt ${attempt}/3 failed: ${error.message}`);
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, attempt * 1000));
+          }
+        }
 
         if (uploadErr) {
-          console.error(`    ✗ Page ${pageNum} upload FAILED: ${uploadErr.message}`);
+          console.error(`    ✗ Page ${pageNum} upload FAILED after 3 attempts: ${uploadErr.message}`);
           continue;
         }
 
